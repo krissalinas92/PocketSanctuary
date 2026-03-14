@@ -52,10 +52,31 @@ Mobile App Dev - App Brainstorming Example
 ### Messages
   - **Category:** Social
   - **Mobile:** Mainly used on mobile platforms, Apple recently incorporated the use of Messages on their tablets and Desktops for seamless integration via iCloud.
-  - **Story:** Very convenient for Apple users and their devices as users will be able to see real-time reactions, replies and even play games together all within the app. Creating a sort of social circle amongst iPhone users
+  - **Story:** Very convenient for Apple users and their devices as users will be able to see real-time reactions, replies and even play games together all within the app. Creating a sort of social circle amongst iPhone                  users
   - **Market:** Since Apple's products are very popular, especially with the younger demographic, this app the user base is very large.
-  - **Habit:**
-  - **Scope:**
+  - **Habit:** Though not a social networking app itself, Messages encourages iPhone users to come together and utilize these exclusive features that other mobile platforms may not, thus creating it's own sort of social                  network based on that fact. The ease of use amongst that exclusive user base creates that
+  - **Scope:** Messages started out same as any other stock messaging app, over time it evolved to become an all-in-one Messaging app even allowing file sharing on the platform amongst users thus bringing social circles                  together
+### Facebook Messanger
+   - **Category:** Social
+   - **Mobile:** Mainly only used on mobile platforms, Facebook (by Meta) has is integrated with the website on Desktop where users can communicate, mobile platforms ONLY do this through the Facebook Messenger app
+   - **Story:** Provides a means of communication between Facebook users where phone and video calls can be had with any user and live chatting regardless of platform unlike Apple's aforementioned Messages app
+   - **Market:** Facebook requires it's users to be 18 years or older to access its platform. Mainly used to keep in touch with friends and family
+   - **Habit:** Can be very addicting as many users use the app as a primary form of communication, especially when no cell service is feasible, Facebook Messenger uses internet to bridge its users.
+   - **Scope:** Facebook Messenger became an instant messaging app in March 2008 starting from desktop to mobile, around when Facebook rose to popularity. Now integrates with Instagram for seamless messaging across the                    Meta platform
+### Pokemon TCG Pocket
+   - **Category:** Entertainment
+   - **Mobile:** Strictly only on mobile platforms unless emulated, touch gestures are deeply integrated into this app
+   - **Story:** This card game gives the user the experience of opening up a pack of cards, building decks for play and archiving collections all from their device
+   - **Market:** The game is accomodating to every sort of fan of the Pokemon franchise, new and old, that all age groups can actually enjoy
+   - **Habit:** As of the writing of this document, the Pokemon craze has had a resurgence with fans seeking cards from major retailers to the point that a casual fan can't get ahold of any cards. This app creates that                    experience for the user, without the need to even spend money! Unless the user chooses to of course
+   - **Scope:** Still a fairly new app, but its popularity is worldwide as the Pokemon craze has resurfaced due to the pandemic seeing no downward trends years later.
+### Clock
+   - **Category:** Productivity
+   - **Mobile:** Only available on Apple's iPhone and iPad, syncs across Apple devices through iCloud
+   - **Story:** Used for seein world clocks and setting timers or alarms, essential for any working adult and/or college student!
+   - **Market:** Everyone needs a reliable clock, same for alarms
+   - **Habit:** None really, the app is very basic but useful
+   - **Scope:** A stock clock app. Useful for any and all situations.
 ## New App Ideas - List
 1. All in one entertainment app
 
