@@ -84,7 +84,7 @@ Mobile App Dev - App Brainstorming Example
 1. All in one entertainment app
 
 ## New App Ideas - Evaluate and Categorize
-1. Student Behavior Tracker
+1. Pixster
    - **Description**: Gives the user an one stop shop to look up new and upcoming books, movies, tv shows, albums and a place to save their favorites for tracking release dates and prices
    - **Category:**: Entertainment
    - **Mobile:** Mobile is essential for tracking favorites in the palm of their hands while not needing a log in to do so, the app tries to be as user friendly as possible 
