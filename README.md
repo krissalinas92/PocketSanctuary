@@ -87,7 +87,7 @@ Mobile App Dev - App Brainstorming Example
 1. Pixster
    - **Description**: Gives the user an one stop shop to look up new and upcoming books, movies, tv shows, albums and a place to save their favorites for tracking release dates and prices
    - **Category:**: Entertainment
-   - **Mobile:** Mobile is essential for tracking favorites in the palm of their hands while not needing a log in to do so, the app tries to be as user friendly as possible 
+   - **Mobile:** Mobile is essential for tracking favorites in the palm of their hands whether they're online or on airplane mode through cached local data 
    - **Story:**; Users can share their list with their friends, creating more sociable relationships based on preferences
    - **Market:** Everyone who enjoys the entertainment media as a whole
    - **Habit:** Critics and avid movie goers could use the app to stay on top of the latest movies, music or books
