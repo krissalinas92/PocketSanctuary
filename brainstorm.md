@@ -16,7 +16,13 @@ The all in one entertainment app for everything new and upcoming ranging from mo
 
 [Evaluation of your app across the following attributes]
 
-- **Market:**
+- **Description**: Gives the user an one stop shop to look up new and upcoming books, movies, tv shows, albums and a place to save their favorites for tracking release dates and prices
+- **Category:**: Entertainment
+- **Mobile:** Mobile is essential for tracking favorites in the palm of their hands whether they're online or on airplane mode through cached local data 
+- **Story:**; Users can share their list with their friends, creating more sociable relationships based on preferences
+- **Market:** Everyone who enjoys the entertainment media as a whole
+- **Habit:** Critics and avid movie goers could use the app to stay on top of the latest movies, music or books
+- **Scope:** V1 could incorporate movie browsing and saving favorites, V2 could incorporate location based suggestions, V3 could implement multiple mediums of entertainment
 
 
 ## Product Spec
