@@ -10,7 +10,7 @@
 
 ### Description
 
-The all in one entertainment app for everything new and upcoming ranging from movie, tv shows, music and books!
+The all in one entertainment app for everything new and upcoming ranging from movies, tv shows, music and books!
 
 ### App Evaluation
 
