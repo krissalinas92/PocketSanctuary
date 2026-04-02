@@ -15,8 +15,8 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 ### App Evaluation
 
 [Evaluation of your app across the following attributes]
-- **Category:** Gaming / Simulation
-- **Mobile:** Designed for mobile-first play with touch interactions, audio feedback, push notifications, and short check-in sessions that work well on Android devices
+- **Category:** Gaming / Simulation / Entertainment
+- **Mobile:** Designed for mobile-first play with touch interactions, audio feedback, push notifications, short check-in sessions, and device orientation that work well on Android devices
 - **Story:** Players build a relaxing sanctuary filled with rare and lovable animals, creating a comforting experience centered around care, customization, and progression
 - **Market:** Animal lovers, casual mobile gamers, and fans of cozy collecting or pet simulation games
 - **Habit:** Players are encouraged to return often to log in, feed animals, clean habitats, collect rewards, and unlock new animals and decorations
