@@ -1,4 +1,4 @@
-# Milestone 1 - Pixster (Unit 7)
+# Milestone 1 - Pocket Sanctuary (Unit 7)
 
 ## Table of Contents
 
@@ -10,19 +10,23 @@
 
 ### Description
 
-The all in one entertainment app for everything new and upcoming ranging from movies, tv shows, music and books!
+Pocket Sanctuary is a cozy mobile game where players collect, raise, and care for exotic animals while expanding a calm and colorful sanctuary.
 
 ### App Evaluation
 
 [Evaluation of your app across the following attributes]
 
-- **Description**: Gives the user an one stop shop to look up new and upcoming books, movies, tv shows, albums and a place to save their favorites for tracking release dates and prices
-- **Category:**: Entertainment
-- **Mobile:** Mobile is essential for tracking favorites in the palm of their hands whether they're online or on airplane mode through cached local data 
-- **Story:**; Users can share their list with their friends, creating more sociable relationships based on preferences
-- **Market:** Everyone who enjoys the entertainment media as a whole
-- **Habit:** Critics and avid movie goers could use the app to stay on top of the latest movies, music or books
-- **Scope:** V1 could incorporate movie browsing and saving favorites, V2 could incorporate location based suggestions, V3 could implement multiple mediums of entertainment
+- **Description**: A relaxing animal-care game where players adopt exotic animals, meet their daily needs, customize habitats, and grow a sanctuary over time
+- **Category:** Gaming / Simulation
+- **Mobile:** The app is built for touch-first play, short check-ins, push reminders, audio cues, and time-based care cycles that make sense on a phone
+- **Story:** Players create a personal sanctuary for rare and lovable animals, making the game feel comforting, creative, and rewarding
+- **Market:** Animal lovers, casual mobile gamers, and fans of cozy collecting or pet simulation games
+- **Habit:** Players are encouraged to return often to feed animals, clean habitats, collect rewards, unlock new animals, and decorate their sanctuary
+- **Scope:** V1 focuses on a polished core loop with a few animals, a main sanctuary, simple progression, and local save support; future versions can expand the sanctuary and roster
+
+### Previous Idea
+
+The project originally started as **Pixster**, an all-in-one entertainment tracker for movies, shows, books, and music. That earlier concept is being preserved in this document history, but the current milestone direction is now focused on Pocket Sanctuary.
 
 
 ## Product Spec
@@ -32,46 +36,59 @@ The all in one entertainment app for everything new and upcoming ranging from mo
 **Required Features**
 
 1. Must have at least 5 screens the user can navigate to
-2. must have endless(or as much as possible) scrolling
-3. Must be able to direct the user where they can find the form of entertainment they're looking into (e.g. which movie theater is playing the new Mario movie)
+2. Must allow the user to care for and interact with multiple animals
+3. Must save player progress including animal stats, unlocked items, and sanctuary customization
+4. Must include a progression or reward system that encourages repeat play
+5. Must make use of mobile-friendly interactions such as touch input, notifications, and audio feedback
 
 **Optional Features**
 
-1. Uses Google Maps API to direct the user exactly where they can get a particular movie or book
+1. Additional sanctuary biomes such as bamboo forest, jungle, arctic, or wetlands
+2. More exotic animals with unique preferences, sounds, and animations
+3. Daily streak rewards, quests, or special seasonal events
 
 ### 2. Screen Archetypes
 
 - Stream
-  - User can see the stream of the entertainment medium they wish to consume
-  - This is accomplished using the bottom navigation bar
-  - 
+  - User sees the main sanctuary with their animals, active tasks, rewards, and current habitat status
+  - This acts as the primary gameplay screen players return to throughout the day
 - Detail
-  - When the user selects a particular book, album or movie they get a brief description of it
-  - The user can get a location based search of where a movie or book can be bought or viewed, and which streaming service has a particular tv show.
+  - When the user selects an animal they can view detailed stats such as hunger, happiness, energy, and favorite items
+  - The user can also inspect habitat details and unlock requirements for future animals
+- Creation
+  - The user can decorate habitats, place furniture, choose food, and customize accessories for animals
+- Profile
+  - The user can view their player level, sanctuary progress, unlocked animals, and daily streak information
+- Settings
+  - The user can control sound, notifications, and game preferences
 
 ### 3. Navigation
 
 **Tab Navigation** (Tab to Screen)
 
-* Home page will have user favorites based on category
-* Movies, top navigation will have playing now and the bottom upcoming movies
-* Books, the detail page will direct a user to a book store that has the book they are seeking
+* Sanctuary tab shows the main habitat and active animals
+* Animals tab shows the player's unlocked animal collection
+* Shop tab lets the player browse food, toys, and decorations
+* Profile tab shows progress, currency, and achievements
+* Settings tab manages notifications, audio, and preferences
 
 **Flow Navigation** (Screen to Screen)
 
-- Home screen
-  - User can select a particular form of entertainment and be brought to a details screen without clicking another tab
-  - A back arrow at the top of the screen can bring the user back until they reach the home screen again
+- Sanctuary screen
+  - User can tap an animal to open its detail screen
+  - User can open the shop to buy food, toys, or decorations and return to the sanctuary
 - Detail screen
-  - User can be given options on where to buy their entertainment medium (Book, Music album, Etc.)from the detail screen. "Where to buy"
-  - User can navigate back in case the medium they choose is not to consume it
+  - User can feed, play with, or clean up after the selected animal
+  - User can navigate back to the sanctuary after completing an interaction
+- Creation screen
+  - User can place decorations or accessories and then return to the main sanctuary to see changes applied
+- Profile screen
+  - User can review overall progress and jump back to the sanctuary or animal collection
 
 ## Wireframes
 
-(https://github.com/krissalinas92/Pixster/blob/main/Wireframes.pdf)
+Previous wireframes were created for the older Pixster concept and have been removed from the current project folder. New Pocket Sanctuary wireframes will replace them in a future update.
 
 <br>
 
 <br>
-
-

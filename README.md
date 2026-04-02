@@ -1,4 +1,4 @@
-Mobile App Dev - App Brainstorming Example
+Mobile App Dev - App Brainstorming
 ===
 
 ## Favorite Existing Apps - List
@@ -86,7 +86,7 @@ Mobile App Dev - App Brainstorming Example
 2. 2. Laidback game where the user raises, feeds and can accessorize a wide range of exotic animals
 
 ## New App Ideas - Evaluate and Categorize
-1. Pixster
+1. Pixster (Previous Idea)
    - **Description**: Gives the user an one stop shop to look up new and upcoming books, movies, tv shows, albums and a place to save their favorites for tracking release dates and prices
    - **Category:**: Entertainment
    - **Mobile:** Mobile is essential for tracking favorites in the palm of their hands whether they're online or on airplane mode through cached local data 
@@ -95,11 +95,11 @@ Mobile App Dev - App Brainstorming Example
    - **Habit:** Critics and avid movie goers could use the app to stay on top of the latest movies, music or books
    - **Scope:** V1 could incorporate movie browsing and saving favorites, V2 could incorporate location based suggestions, V3 could implement multiple mediums of entertainment
 
-2. Rancher (WIP)
-   - **Description**: Mobile game where the user can interact, feed, raise and clothe cute exotic animals
+2. Pocket Sanctuary (Current Idea)
+   - **Description**: A cozy mobile game where the user collects, raises, feeds, plays with, and accessorizes a wide range of exotic animals while expanding a peaceful sanctuary
    - **Category**: Gaming
-   - **Mobile**: Game only functions on mobile due to touch and screen orientation being a major function
-   - **Story**:  
-   - **Market**: 
-   - **Habit**: 
-   - **Scope**: 
+   - **Mobile**: Designed for mobile-first play with touch interactions, push notifications for animal care reminders, audio feedback, and time-based check-ins that fit short sessions throughout the day
+   - **Story**: Gives animal lovers and cozy game players a relaxing space to care for rare animals, personalize habitats, and build an inviting sanctuary over time
+   - **Market**: Appeals to casual mobile gamers, virtual pet fans, and players who enjoy collection, customization, and stress-free simulation games
+   - **Habit**: Users return frequently to feed animals, collect daily rewards, check changing needs, unlock new species, and decorate habitats
+   - **Scope**: V1 can focus on 3 starter animals, a main sanctuary screen, care interactions, a simple shop, and local save data; later versions can add more habitats, animals, and social features
