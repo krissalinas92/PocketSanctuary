@@ -10,24 +10,17 @@
 
 ### Description
 
-Pocket Sanctuary is a cozy mobile game where players collect, raise, and care for exotic animals while expanding a calm and colorful sanctuary.
+Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where players log in, collect exotic animals, care for their needs, and grow a peaceful sanctuary over time.
 
 ### App Evaluation
 
 [Evaluation of your app across the following attributes]
-
-- **Description**: A relaxing animal-care game where players adopt exotic animals, meet their daily needs, customize habitats, and grow a sanctuary over time
 - **Category:** Gaming / Simulation
-- **Mobile:** The app is built for touch-first play, short check-ins, push reminders, audio cues, and time-based care cycles that make sense on a phone
-- **Story:** Players create a personal sanctuary for rare and lovable animals, making the game feel comforting, creative, and rewarding
+- **Mobile:** Designed for mobile-first play with touch interactions, audio feedback, push notifications, and short check-in sessions that work well on Android devices
+- **Story:** Players build a relaxing sanctuary filled with rare and lovable animals, creating a comforting experience centered around care, customization, and progression
 - **Market:** Animal lovers, casual mobile gamers, and fans of cozy collecting or pet simulation games
-- **Habit:** Players are encouraged to return often to feed animals, clean habitats, collect rewards, unlock new animals, and decorate their sanctuary
-- **Scope:** V1 focuses on a polished core loop with a few animals, a main sanctuary, simple progression, and local save support; future versions can expand the sanctuary and roster
-
-### Previous Idea
-
-The project originally started as **Pixster**, an all-in-one entertainment tracker for movies, shows, books, and music. That earlier concept is being preserved in this document history, but the current milestone direction is now focused on Pocket Sanctuary.
-
+- **Habit:** Players are encouraged to return often to log in, feed animals, clean habitats, collect rewards, and unlock new animals and decorations
+- **Scope:** Milestone 1 focuses on planning a realistic MVP with a login screen, main sanctuary loop, animal care interactions, and supporting wireframes
 
 ## Product Spec
 
@@ -35,60 +28,115 @@ The project originally started as **Pixster**, an all-in-one entertainment track
 
 **Required Features**
 
-1. Must have at least 5 screens the user can navigate to
-2. Must allow the user to care for and interact with multiple animals
-3. Must save player progress including animal stats, unlocked items, and sanctuary customization
-4. Must include a progression or reward system that encourages repeat play
-5. Must make use of mobile-friendly interactions such as touch input, notifications, and audio feedback
+1. User can log in from a dedicated opening screen before entering the game
+2. User can view and manage multiple exotic animals in their sanctuary
+3. User can interact with animals through actions like feeding, playing, and cleaning
+4. User can navigate across at least five app screens including login, sanctuary, animal detail, shop/customization, and profile/settings
+5. User progress is saved, including animal status, unlocked items, and sanctuary customization
 
 **Optional Features**
 
-1. Additional sanctuary biomes such as bamboo forest, jungle, arctic, or wetlands
-2. More exotic animals with unique preferences, sounds, and animations
-3. Daily streak rewards, quests, or special seasonal events
+1. Push notifications that remind the player when animals need attention
+2. Additional habitats or biomes that unlock as the sanctuary grows
+3. Daily rewards, streaks, and special events for repeat engagement
 
 ### 2. Screen Archetypes
 
+- Login
+  - User enters their credentials to access their sanctuary
+  - User starts the app experience from a clear first screen
 - Stream
-  - User sees the main sanctuary with their animals, active tasks, rewards, and current habitat status
-  - This acts as the primary gameplay screen players return to throughout the day
+  - User sees the main sanctuary with animals, tasks, and rewards
+  - User returns here frequently as the primary gameplay screen
 - Detail
-  - When the user selects an animal they can view detailed stats such as hunger, happiness, energy, and favorite items
-  - The user can also inspect habitat details and unlock requirements for future animals
+  - User selects an animal to view stats such as hunger, happiness, and energy
+  - User can perform care actions for that specific animal
 - Creation
-  - The user can decorate habitats, place furniture, choose food, and customize accessories for animals
+  - User customizes habitats, decorations, food choices, or accessories
+  - User personalizes the sanctuary and its animals
 - Profile
-  - The user can view their player level, sanctuary progress, unlocked animals, and daily streak information
+  - User views progress, unlocked animals, and general account information
+  - User tracks their sanctuary growth over time
 - Settings
-  - The user can control sound, notifications, and game preferences
+  - User manages sound, notifications, and other preferences
+  - User can log out or adjust gameplay settings
 
 ### 3. Navigation
 
 **Tab Navigation** (Tab to Screen)
 
-* Sanctuary tab shows the main habitat and active animals
-* Animals tab shows the player's unlocked animal collection
-* Shop tab lets the player browse food, toys, and decorations
-* Profile tab shows progress, currency, and achievements
-* Settings tab manages notifications, audio, and preferences
+* Sanctuary
+* Animals
+* Shop
+* Profile
+* Settings
 
 **Flow Navigation** (Screen to Screen)
 
-- Sanctuary screen
-  - User can tap an animal to open its detail screen
-  - User can open the shop to buy food, toys, or decorations and return to the sanctuary
-- Detail screen
-  - User can feed, play with, or clean up after the selected animal
-  - User can navigate back to the sanctuary after completing an interaction
-- Creation screen
-  - User can place decorations or accessories and then return to the main sanctuary to see changes applied
-- Profile screen
-  - User can review overall progress and jump back to the sanctuary or animal collection
+- Login
+  - User enters credentials and moves to the Sanctuary screen
+  - User can log out later and return to the Login screen
+- Sanctuary
+  - User taps an animal to open the Detail screen
+  - User opens the Shop or customization flow from the main habitat
+- Detail
+  - User performs care actions and returns to the Sanctuary screen
+  - User can move between animal-specific actions and general habitat management
+- Shop
+  - User buys food, toys, or decorations and returns to the Sanctuary screen
+  - User applies purchased items to animals or habitats
+- Profile
+  - User reviews progress and navigates back to the Sanctuary or Settings screen
 
 ## Wireframes
 
-Previous wireframes were created for the older Pixster concept and have been removed from the current project folder. New Pocket Sanctuary wireframes will replace them in a future update.
+[Add picture of your hand sketched wireframes in this section] <img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
 
 <br>
 
 <br>
+
+### [BONUS] Digital Wireframes & Mockups
+
+### [BONUS] Interactive Prototype
+
+<br>
+
+# Milestone 2 - Build Sprint 1 (Unit 8)
+
+## GitHub Project board
+
+[Add screenshot of your Project Board with three milestones visible in
+this section]
+<img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+
+## Issue cards
+
+- [Add screenshot of your Project Board with the issues that you've been working on for this unit's milestone] <img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+- [Add screenshot of your Project Board with the issues that you're working on in the **NEXT sprint**. It should include issues for next unit with assigned owners.] <img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+
+## Issues worked on this sprint
+
+- List the issues you completed this sprint
+- [Add giphy that shows current build progress for Milestone 2. Note: We will be looking for progression of work between Milestone 2 and 3. Make sure your giphys are not duplicated and clearly show the change from Sprint 1 to 2.]
+
+<br>
+
+# Milestone 3 - Build Sprint 2 (Unit 9)
+
+## GitHub Project board
+
+[Add screenshot of your Project Board with the updated status of issues for Milestone 3. Note that these should include the updated issues you worked on for this sprint and not be a duplicate of Milestone 2 Project board.] <img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+
+## Completed user stories
+
+- List the completed user stories from this unit
+- List any pending user stories / any user stories you decided to cut
+from the original requirements
+
+[Add video/gif of your current application that shows build progress]
+<img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+
+## App Demo Video
+
+- Embed the YouTube/Vimeo link of your Completed Demo Day prep video
