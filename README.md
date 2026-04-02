@@ -79,9 +79,11 @@ Mobile App Dev - App Brainstorming Example
    - **Scope:** A stock clock app. Useful for any and all situations.
 ## New App Ideas - List
 1. All in one entertainment app
+2. Laidback game where the user raises, feeds and can accessorize a wide range of exotic animals
 
 ## Top 3 New App Ideas
 1. All in one entertainment app
+2. 2. Laidback game where the user raises, feeds and can accessorize a wide range of exotic animals
 
 ## New App Ideas - Evaluate and Categorize
 1. Pixster
@@ -93,4 +95,11 @@ Mobile App Dev - App Brainstorming Example
    - **Habit:** Critics and avid movie goers could use the app to stay on top of the latest movies, music or books
    - **Scope:** V1 could incorporate movie browsing and saving favorites, V2 could incorporate location based suggestions, V3 could implement multiple mediums of entertainment
 
-
+2. Rancher (WIP)
+   - **Description**: Mobile game where the user can interact, feed, raise and clothe cute exotic animals
+   - **Category**: Gaming
+   - **Mobile**: Game only functions on mobile due to touch and screen orientation being a major function
+   - **Story**:  
+   - **Market**: 
+   - **Habit**: 
+   - **Scope**: 
