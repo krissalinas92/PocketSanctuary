@@ -106,8 +106,7 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 
 ## GitHub Project board
 
-[Add screenshot of your Project Board with three milestones visible in
-this section]
+[Add screenshot of your Project Board with three milestones visible in this section]
 <img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
 
 ## Issue cards
