@@ -90,7 +90,7 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 
 ## Wireframes
 
-[Add picture of your hand sketched wireframes in this section] <img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+[Add picture of your hand sketched wireframes in this section] <img src="images/NewWireframes.png" width=600>
 
 <br>
 
