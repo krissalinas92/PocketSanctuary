@@ -10,4 +10,8 @@ public class SanctuaryUI : MonoBehaviour
     {
         SceneManager.LoadScene("TasksRewardsScene");
     }
+    public void OnAnimalClicked()
+    {
+        SceneManager.LoadScene("AnimalDetail");
+    }
 }
