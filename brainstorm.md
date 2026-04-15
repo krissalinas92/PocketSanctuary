@@ -144,13 +144,8 @@ from the original requirements
 
 
 [Add video/gif of your current application that shows build progress]
-<div style="position: relative; width: 100%; padding-bottom: 56.25%">
-<iframe src="https://youtube.com/shorts/39RFIwguoZQ?feature=share" 
-        title="Milestone 3 Demo Video" frameborder="0" allowfullscreen
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-        style="position: absolute; width: 100%; height: 100%;">
-</iframe>
-</div>
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/39RFIwguoZQ/0.jpg)](https://www.youtube.com/watch?v=39RFIwguoZQ)
+
 
 ## App Demo Video
 
