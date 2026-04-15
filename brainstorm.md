@@ -65,10 +65,13 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 
 **Tab Navigation** (Tab to Screen)
 
+* Login
 * Sanctuary
-* Animals
+* PocketPal
+  -PocketPal Feed/Accesorize
 * Shop
-* Profile
+* TasksRewards
+* Customization
 * Settings
 
 **Flow Navigation** (Screen to Screen)
@@ -79,14 +82,18 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 - Sanctuary
   - User taps an animal to open the Detail screen
   - User opens the Shop or customization flow from the main habitat
-- Detail
-  - User performs care actions and returns to the Sanctuary screen
+- PocketPal
+  - User performs feed or accesorize actions and returns to the Sanctuary screen
   - User can move between animal-specific actions and general habitat management
+- Customize
+  - User can customize their PocketPal and habitat backdrop
 - Shop
   - User buys food, toys, or decorations and returns to the Sanctuary screen
   - User applies purchased items to animals or habitats
-- Profile
-  - User reviews progress and navigates back to the Sanctuary or Settings screen
+- TasksRewards
+  - User reviews progress and navigates back to the Sanctuary or 
+- Settings
+  - Multiple settings
 
 ## Wireframes
 
@@ -127,7 +134,7 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 
 ## GitHub Project board
 
-[Add screenshot of your Project Board with the updated status of issues for Milestone 3. Note that these should include the updated issues you worked on for this sprint and not be a duplicate of Milestone 2 Project board.] <img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+[Add screenshot of your Project Board with the updated status of issues for Milestone 3. Note that these should include the updated issues you worked on for this sprint and not be a duplicate of Milestone 2 Project board.] <img src="images/Milestone3-ProjectBoard.png" width=600>
 
 ## Completed user stories
 
@@ -135,8 +142,15 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 - List any pending user stories / any user stories you decided to cut
 from the original requirements
 
+
 [Add video/gif of your current application that shows build progress]
-<img src="YOUR_WIREFRAME_IMAGE_URL" width=600>
+<div style="position: relative; width: 100%; padding-bottom: 56.25%">
+<iframe src="https://youtube.com/shorts/39RFIwguoZQ?feature=share" 
+        title="Milestone 3 Demo Video" frameborder="0" allowfullscreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        style="position: absolute; width: 100%; height: 100%;">
+</iframe>
+</div>
 
 ## App Demo Video
 
