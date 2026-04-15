@@ -97,7 +97,8 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 
 ## Wireframes
 
-[Add picture of your hand sketched wireframes in this section] <img src="images/NewWireframes.png" width=600>
+[Add picture of your hand sketched wireframes in this section] 
+<img src="images/NewWireframes.png" width=600>
 
 <br>
 
@@ -118,8 +119,10 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 
 ## Issue cards
 
-- [Add screenshot of your Project Board with the issues that you've been working on for this unit's milestone] <img src="images/Milestone2-Issues.png" width=600>
-- [Add screenshot of your Project Board with the issues that you're working on in the **NEXT sprint**. It should include issues for next unit with assigned owners.] <img src="images/Milestone2-Plans.png" width=600>
+- [Add screenshot of your Project Board with the issues that you've been working on for this unit's milestone] 
+<img src="images/Milestone2-Issues.png" width=600>
+- [Add screenshot of your Project Board with the issues that you're working on in the **NEXT sprint**. It should include issues for next unit with assigned owners.] 
+<img src="images/Milestone2-Plans.png" width=600>
 
 ## Issues worked on this sprint
 
