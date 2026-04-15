@@ -22,6 +22,8 @@ public class LoginManager : MonoBehaviour
     */
     public void OnLoginPressed() 
     {
+        SaveManager.EnsureLoaded();
+
         string username = usernameInput.text.Trim();
         string password = passwordInput.text.Trim();
 
@@ -44,6 +46,8 @@ public class LoginManager : MonoBehaviour
         }
 
         statusText.text = "Logging in...";
+        SaveManager.Data.username = username;
+        SaveManager.Save();
         SceneManager.LoadScene("SanctuaryScene", LoadSceneMode.Single);
     }
 }

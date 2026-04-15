@@ -18,6 +18,7 @@ public class SanctuaryUI : MonoBehaviour
 
     private void Start()
     {
+        SaveManager.EnsureLoaded();
         BuildSanctuaryHome();
         DisableTextRaycasts();
         CreatePocketPalButton();
@@ -105,7 +106,7 @@ public class SanctuaryUI : MonoBehaviour
         button.targetGraphic = image;
         button.onClick.AddListener(OnAnimalClicked);
 
-        CreateHomeLabel("PocketPalName", pocketPal.transform, "Sprout", new Vector2(0.5f, -0.26f), 28);
+        CreateHomeLabel("PocketPalName", pocketPal.transform, SaveManager.Data.selectedPocketPalName, new Vector2(0.5f, -0.26f), 28);
     }
 
     private void DisableTextRaycasts()

@@ -13,6 +13,8 @@ public class TopBarManager : MonoBehaviour
 
     private void Awake()
     {
+        SaveManager.EnsureLoaded();
+        currentCoins = SaveManager.Data.coins;
         EnsureDropdownReference();
     }
 
@@ -65,15 +67,29 @@ public class TopBarManager : MonoBehaviour
     public void AddCoins(int amount)
     {
         currentCoins += amount;
+        SaveManager.Data.coins = currentCoins;
+        SaveManager.Save();
         UpdateCoinDisplay();
-    }    
+    }
+
     public void SetCoins(int amount)
-        {
-            currentCoins = amount;
-            UpdateCoinDisplay();
-        }
+    {
+        currentCoins = amount;
+        SaveManager.Data.coins = currentCoins;
+        SaveManager.Save();
+        UpdateCoinDisplay();
+    }
+
+    public void RefreshCoinDisplay()
+    {
+        UpdateCoinDisplay();
+    }
+
     private void UpdateCoinDisplay()
     {
+        SaveManager.EnsureLoaded();
+        currentCoins = SaveManager.Data.coins;
+
         if (coinText != null)
         {
             coinText.text = "Coins: " + currentCoins;

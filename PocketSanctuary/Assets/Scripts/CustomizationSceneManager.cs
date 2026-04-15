@@ -18,6 +18,7 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void Start()
     {
+        SaveManager.EnsureLoaded();
         ConfigureScrollView();
     }
 
@@ -215,19 +216,22 @@ public class CustomizationSceneManager : MonoBehaviour
     private void BuildSettingsContent(RectTransform mainContent)
     {
         ClearChildren(mainContent);
+        GameSaveData saveData = SaveManager.Data;
 
         CreateTitle(mainContent, "Settings");
-        CreateSection(mainContent, "Account", "Manage your login details.", 560f, new string[]
+        CreateSection(mainContent, "Account", "Signed in as " + saveData.username + ".", 560f, new string[]
         {
             "Change username",
             "Change email",
             "Change password"
         });
 
+        string soundStatus = saveData.soundEnabled ? "on" : "off";
+        string notificationStatus = saveData.notificationsEnabled ? "on" : "off";
         CreateSection(mainContent, "Preferences", "Tune how PocketSanctuary feels.", 680f, new string[]
         {
-            "Sound settings",
-            "Notifications",
+            "Sound settings - currently " + soundStatus,
+            "Notifications - currently " + notificationStatus,
             "Buy more coins",
             "Accessibility options"
         });
@@ -249,16 +253,19 @@ public class CustomizationSceneManager : MonoBehaviour
         VerticalLayoutGroup stageLayout = ConfigurePanelLayout(stage, 28, 28, 36, 36, 22);
         stageLayout.childAlignment = TextAnchor.MiddleCenter;
 
-        TMP_Text palName = CreateText("PocketPalName", stage.transform, "Sprout", 52, FontStyles.Bold, TextAlignmentOptions.Center);
+        GameSaveData saveData = SaveManager.Data;
+
+        TMP_Text palName = CreateText("PocketPalName", stage.transform, saveData.selectedPocketPalName, 52, FontStyles.Bold, TextAlignmentOptions.Center);
         palName.color = new Color(0.08f, 0.18f, 0.22f);
 
-        pocketPalBodyText = CreateText("PocketPalBody", stage.transform, "Pal lives here\n\nMood: Curious\nHunger: Ready for a snack\nEnergy: Bright", 32, FontStyles.Normal, TextAlignmentOptions.Center);
+        pocketPalFeedCount = saveData.snacksFed;
+        pocketPalBodyText = CreateText("PocketPalBody", stage.transform, CreatePocketPalStatusText("Curious", "Ready for a snack"), 32, FontStyles.Normal, TextAlignmentOptions.Center);
         pocketPalBodyText.color = new Color(0.12f, 0.24f, 0.28f);
 
         GameObject actionPanel = CreatePanel("PocketPalActions", mainContent, new Color(1f, 1f, 1f, 0.42f), 330f);
         ConfigurePanelLayout(actionPanel, 26, 26, 26, 26, 20);
 
-        TMP_Text actionLabel = CreateText("PocketPalActionLabel", actionPanel.transform, "What should Sprout do?", 30, FontStyles.Bold, TextAlignmentOptions.Center);
+        TMP_Text actionLabel = CreateText("PocketPalActionLabel", actionPanel.transform, "What should " + saveData.selectedPocketPalName + " do?", 30, FontStyles.Bold, TextAlignmentOptions.Center);
         actionLabel.color = new Color(0.08f, 0.18f, 0.22f);
 
         CreateButton("AccessorizeButton", actionPanel.transform, "Accessorize", GoToCustomization, new Color(0.69f, 0.88f, 0.66f, 1f));
@@ -270,8 +277,14 @@ public class CustomizationSceneManager : MonoBehaviour
         TMP_Text statsTitle = CreateText("PocketPalStatsTitle", statsPanel.transform, "PocketPal Stats", 34, FontStyles.Bold, TextAlignmentOptions.Center);
         statsTitle.color = new Color(0.08f, 0.18f, 0.22f);
 
-        TMP_Text statsBody = CreateText("PocketPalStatsBody", statsPanel.transform, "Favorite food: Berry bites\nAccessory: None equipped\nFriendship: Level 1\nNext reward: 25 coins", 28, FontStyles.Normal, TextAlignmentOptions.Left);
+        string equippedAccessory = string.IsNullOrEmpty(saveData.equippedAccessoryId) ? "None equipped" : saveData.equippedAccessoryId;
+        TMP_Text statsBody = CreateText("PocketPalStatsBody", statsPanel.transform, "Favorite food: Berry bites\nAccessory: " + equippedAccessory + "\nFriendship: Level " + saveData.friendshipLevel + "\nSnacks fed: " + saveData.snacksFed + "\nNext reward: 25 coins", 28, FontStyles.Normal, TextAlignmentOptions.Left);
         statsBody.color = new Color(0.12f, 0.24f, 0.28f);
+    }
+
+    private string CreatePocketPalStatusText(string mood, string hunger)
+    {
+        return "Pal lives here\n\nMood: " + mood + "\nHunger: " + hunger + "\nSnacks eaten: " + pocketPalFeedCount;
     }
 
     private TMP_Text CreateTitle(Transform parent, string text)
@@ -472,11 +485,23 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void FeedPocketPal()
     {
+        SaveManager.EnsureLoaded();
+
         pocketPalFeedCount++;
+        SaveManager.Data.snacksFed = pocketPalFeedCount;
+        SaveManager.Data.coins += 10;
+        SaveManager.Data.rewardProgress += 10;
+        SaveManager.Save();
+
+        TopBarManager topBarManager = FindFirstObjectByType<TopBarManager>();
+        if (topBarManager != null)
+        {
+            topBarManager.RefreshCoinDisplay();
+        }
 
         if (pocketPalBodyText != null)
         {
-            pocketPalBodyText.text = "Pal lives here\n\nMood: Happy\nHunger: Full\nSnacks eaten: " + pocketPalFeedCount;
+            pocketPalBodyText.text = CreatePocketPalStatusText("Happy", "Full");
         }
 
         Debug.Log("PocketPal fed.");
