@@ -4,14 +4,14 @@ public class SanctuaryUI : MonoBehaviour
 {
     public void OnCustomizationClicked()
     {
-        SceneManager.LoadScene("CustomizationScene");
+        SceneManager.LoadScene("CustomizationScene", LoadSceneMode.Single);
     }
     public void OnTasksRewardsClicked()
     {
-        SceneManager.LoadScene("TasksRewardsScene");
+        SceneManager.LoadScene("TasksRewardsScene", LoadSceneMode.Single);
     }
     public void OnAnimalClicked()
     {
-        SceneManager.LoadScene("AnimalDetail");
+        SceneManager.LoadScene("AnimalDetail", LoadSceneMode.Single);
     }
 }
