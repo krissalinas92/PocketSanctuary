@@ -144,6 +144,8 @@ from the original requirements
 
 
 [Add video/gif of your current application that shows build progress]
+
+
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/39RFIwguoZQ/0.jpg)](https://www.youtube.com/watch?v=39RFIwguoZQ)
 
 
