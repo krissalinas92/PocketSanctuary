@@ -4,6 +4,7 @@ using UnityEngine;
 public static class SaveManager
 {
     private const string SaveFileName = "save.json";
+    private const int CurrentSaveVersion = 2;
 
     public static GameSaveData Data { get; private set; }
 
@@ -42,6 +43,13 @@ public static class SaveManager
             Data = new GameSaveData();
         }
 
+        if (Data.saveVersion < CurrentSaveVersion)
+        {
+            string username = string.IsNullOrEmpty(Data.username) ? "Player" : Data.username;
+            Data = new GameSaveData();
+            Data.username = username;
+        }
+
         ApplyDefaultsForMissingValues();
         Save();
     }
@@ -75,19 +83,21 @@ public static class SaveManager
 
     private static void ApplyDefaultsForMissingValues()
     {
+        Data.saveVersion = CurrentSaveVersion;
+
         if (string.IsNullOrEmpty(Data.username))
         {
             Data.username = "Player";
         }
 
-        if (string.IsNullOrEmpty(Data.selectedPocketPalId))
+        if (string.IsNullOrEmpty(Data.selectedPocketPalId) || Data.selectedPocketPalId == "sprout")
         {
-            Data.selectedPocketPalId = "sprout";
+            Data.selectedPocketPalId = "panda";
         }
 
-        if (string.IsNullOrEmpty(Data.selectedPocketPalName))
+        if (Data.selectedPocketPalName == "Sprout")
         {
-            Data.selectedPocketPalName = "Sprout";
+            Data.selectedPocketPalName = "";
         }
 
         if (string.IsNullOrEmpty(Data.selectedHabitatId))
@@ -100,14 +110,26 @@ public static class SaveManager
             Data.ownedPocketPalIds = new System.Collections.Generic.List<string>();
         }
 
-        if (!Data.ownedPocketPalIds.Contains("sprout"))
+        if (!Data.ownedPocketPalIds.Contains("panda"))
         {
-            Data.ownedPocketPalIds.Add("sprout");
+            Data.ownedPocketPalIds.Add("panda");
         }
 
         if (Data.ownedAccessoryIds == null)
         {
             Data.ownedAccessoryIds = new System.Collections.Generic.List<string>();
+        }
+
+        EnsureOwnedAccessory("sunglasses");
+
+        if (Data.equippedAccessoryIds == null)
+        {
+            Data.equippedAccessoryIds = new System.Collections.Generic.List<string>();
+        }
+
+        if (!string.IsNullOrEmpty(Data.equippedAccessoryId) && !Data.equippedAccessoryIds.Contains(Data.equippedAccessoryId))
+        {
+            Data.equippedAccessoryIds.Add(Data.equippedAccessoryId);
         }
 
         if (Data.ownedHabitatIds == null)
@@ -123,6 +145,19 @@ public static class SaveManager
         if (Data.completedTaskIds == null)
         {
             Data.completedTaskIds = new System.Collections.Generic.List<string>();
+        }
+
+        if (Data.redeemedRewardIds == null)
+        {
+            Data.redeemedRewardIds = new System.Collections.Generic.List<string>();
+        }
+    }
+
+    private static void EnsureOwnedAccessory(string accessoryId)
+    {
+        if (!Data.ownedAccessoryIds.Contains(accessoryId))
+        {
+            Data.ownedAccessoryIds.Add(accessoryId);
         }
     }
 }

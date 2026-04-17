@@ -4,11 +4,12 @@ using System.Collections.Generic;
 [Serializable]
 public class GameSaveData
 {
-    public int coins = 250;
+    public int saveVersion = 2;
+    public int coins = 5000;
     public string username = "Player";
 
-    public string selectedPocketPalId = "sprout";
-    public string selectedPocketPalName = "Sprout";
+    public string selectedPocketPalId = "panda";
+    public string selectedPocketPalName = "";
     public string selectedHabitatId = "sunny_garden";
     public string equippedAccessoryId = "";
 
@@ -18,9 +19,12 @@ public class GameSaveData
 
     public bool soundEnabled = true;
     public bool notificationsEnabled = true;
+    public bool hasVisitedShop = false;
 
-    public List<string> ownedPocketPalIds = new List<string> { "sprout" };
+    public List<string> ownedPocketPalIds = new List<string> { "panda" };
     public List<string> ownedAccessoryIds = new List<string>();
+    public List<string> equippedAccessoryIds = new List<string>();
     public List<string> ownedHabitatIds = new List<string> { "sunny_garden" };
     public List<string> completedTaskIds = new List<string>();
+    public List<string> redeemedRewardIds = new List<string>();
 }

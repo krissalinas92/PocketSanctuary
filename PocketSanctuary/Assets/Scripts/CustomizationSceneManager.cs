@@ -10,6 +10,18 @@ public class CustomizationSceneManager : MonoBehaviour
     private const string ShopSceneName = "ShopScene";
     private const string SettingsSceneName = "SettingsScene";
     private const string PocketPalSceneName = "PocketPalScene";
+    private const string SunglassesAccessoryId = "sunglasses";
+    private const string HatAccessoryId = "hat";
+    private const string TShirtAccessoryId = "tshirt";
+    private const int HatPrice = 120;
+    private const int TShirtPrice = 160;
+    private const string FeedTaskId = "feed_panda";
+    private const string CheckInTaskId = "check_in";
+    private const string AccessorizeTaskId = "accessorize_panda";
+    private const string VisitShopTaskId = "visit_shop";
+    private const string StarterRewardId = "starter_coin_grant";
+    private const string CareRewardId = "care_progress_bonus";
+    private const string SanctuaryRewardId = "sanctuary_growth_bonus";
 
     [SerializeField] private float scrollBottomPadding = 160f;
 
@@ -24,7 +36,7 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void ConfigureScrollView()
     {
-        ScrollRect scrollRect = FindFirstObjectByType<ScrollRect>();
+        ScrollRect scrollRect = FindAnyObjectByType<ScrollRect>();
         if (scrollRect == null)
         {
             Debug.LogWarning("CustomizationSceneManager could not find a ScrollRect.");
@@ -149,26 +161,136 @@ public class CustomizationSceneManager : MonoBehaviour
         ClearChildren(mainContent);
 
         CreateTitle(mainContent, "Customization");
-        CreateSection(mainContent, "Habitat Backgrounds", "Side-scroller placeholder for home spaces.", 360f, new string[]
+
+        CreateCategorySection(mainContent, "Habitat Backgrounds", "Choose the space your panda calls home.", 420f, new string[]
         {
-            "Sunny Garden - calm starter habitat",
-            "Moonlit Pond - locked decorative backdrop",
-            "Cozy Burrow - future reward unlock"
+            "Sunny Garden\nSelected starter habitat",
+            "Moonlit Pond\nLocked reward habitat",
+            "Cozy Burrow\nLocked reward habitat"
         });
 
-        CreateSection(mainContent, "PocketPals", "Side-scroller placeholder for choosing your active pal.", 360f, new string[]
+        CreateCategorySection(mainContent, "PocketPals", "Pick the animal living in your sanctuary.", 300f, new string[]
         {
-            "Sprout - selected",
-            "Pebble - unlock later",
-            "Nimbus - unlock later"
+            "Panda\nSelected starter pal"
         });
 
-        CreateSection(mainContent, "Accessories", "Small wearable items for your active pal.", 420f, new string[]
+        GameObject accessoriesSection = CreatePanel("AccessoriesSection", mainContent, new Color(1f, 1f, 1f, 0.42f), 980f);
+        ConfigurePanelLayout(accessoriesSection, 28, 28, 34, 34, 24);
+
+        TMP_Text accessoriesTitle = CreateText("AccessoriesTitle", accessoriesSection.transform, "Accessories", 34, FontStyles.Bold, TextAlignmentOptions.Center);
+        accessoriesTitle.color = new Color(0.08f, 0.18f, 0.22f);
+
+        TMP_Text accessoriesSubtitle = CreateText("AccessoriesSubtitle", accessoriesSection.transform, "Dress up your panda by category.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+        accessoriesSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
+
+        CreateAccessoryCategory(accessoriesSection.transform, "Sunglasses", SunglassesAccessoryId, "Round shades", "A cool pair of panda-sized sunglasses.");
+        CreateAccessoryCategory(accessoriesSection.transform, "Hats", HatAccessoryId, "Green cap", "A soft cap for cozy walks.");
+        CreateAccessoryCategory(accessoriesSection.transform, "T-Shirts", TShirtAccessoryId, "Blue tee", "A tiny shirt for your panda.");
+    }
+
+    private void CreateCategorySection(Transform parent, string title, string subtitle, float preferredHeight, string[] options)
+    {
+        float dynamicHeight = Mathf.Max(preferredHeight, 190f + options.Length * 126f);
+        GameObject section = CreatePanel(title.Replace(" ", "") + "Section", parent, new Color(1f, 1f, 1f, 0.42f), dynamicHeight);
+        ConfigurePanelLayout(section, 28, 28, 34, 34, 20);
+
+        TMP_Text titleText = CreateText(title.Replace(" ", "") + "Title", section.transform, title, 34, FontStyles.Bold, TextAlignmentOptions.Center);
+        titleText.color = new Color(0.08f, 0.18f, 0.22f);
+
+        TMP_Text subtitleText = CreateText(title.Replace(" ", "") + "Subtitle", section.transform, subtitle, 24, FontStyles.Normal, TextAlignmentOptions.Center);
+        subtitleText.color = new Color(0.16f, 0.28f, 0.32f);
+
+        for (int index = 0; index < options.Length; index++)
         {
-            "Leaf Hat - owned",
-            "Tiny Scarf - shop item placeholder",
-            "Star Pin - reward placeholder"
-        });
+            CreateOptionCard(title.Replace(" ", "") + "Option" + index, section.transform, options[index]);
+        }
+    }
+
+    private void CreateAccessoryCategory(Transform parent, string categoryTitle, string accessoryId, string itemName, string description)
+    {
+        GameObject categoryPanel = CreatePanel(categoryTitle.Replace("-", "").Replace(" ", "") + "Category", parent, new Color(0.93f, 0.97f, 0.96f, 0.72f), 250f);
+        ConfigurePanelLayout(categoryPanel, 22, 22, 20, 20, 14);
+
+        TMP_Text categoryLabel = CreateText(categoryTitle.Replace(" ", "") + "CategoryLabel", categoryPanel.transform, categoryTitle, 28, FontStyles.Bold, TextAlignmentOptions.Left);
+        categoryLabel.color = new Color(0.08f, 0.18f, 0.22f);
+
+        string status = GetAccessoryStatusText(accessoryId);
+        string cardText = itemName + "\n" + description + "\n" + status;
+        CreateAccessoryCard(accessoryId + "Card", categoryPanel.transform, cardText, accessoryId);
+    }
+
+    private void CreateAccessoryCard(string objectName, Transform parent, string text, string accessoryId)
+    {
+        bool isEquipped = IsAccessoryEquipped(accessoryId);
+        Color cardColor = isEquipped ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
+        GameObject card = CreatePanel(objectName, parent, cardColor, 142f);
+
+        if (IsAccessoryOwned(accessoryId))
+        {
+            Button button = card.AddComponent<Button>();
+            Image image = card.GetComponent<Image>();
+            image.raycastTarget = true;
+            button.targetGraphic = image;
+            button.onClick.AddListener(delegate { ToggleAccessory(accessoryId); });
+        }
+
+        ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
+
+        TMP_Text label = CreateText(objectName + "Label", card.transform, text, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        label.color = new Color(0.08f, 0.18f, 0.22f);
+    }
+
+    private string GetAccessoryStatusText(string accessoryId)
+    {
+        if (IsAccessoryEquipped(accessoryId))
+        {
+            return "Equipped";
+        }
+
+        if (IsAccessoryOwned(accessoryId))
+        {
+            return "Owned";
+        }
+
+        return "Locked";
+    }
+
+    private void ToggleAccessory(string accessoryId)
+    {
+        SaveManager.EnsureLoaded();
+
+        if (SaveManager.Data.equippedAccessoryIds == null)
+        {
+            SaveManager.Data.equippedAccessoryIds = new System.Collections.Generic.List<string>();
+        }
+
+        if (!IsAccessoryOwned(accessoryId))
+        {
+            return;
+        }
+
+        if (SaveManager.Data.equippedAccessoryIds.Contains(accessoryId))
+        {
+            SaveManager.Data.equippedAccessoryIds.Remove(accessoryId);
+        }
+        else
+        {
+            SaveManager.Data.equippedAccessoryIds.Add(accessoryId);
+        }
+
+        SaveManager.Data.equippedAccessoryId = SaveManager.Data.equippedAccessoryIds.Count > 0 ? SaveManager.Data.equippedAccessoryIds[0] : "";
+        SaveManager.Save();
+        SceneManager.LoadScene(CustomizationSceneName, LoadSceneMode.Single);
+    }
+
+    private bool IsAccessoryEquipped(string accessoryId)
+    {
+        return SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Contains(accessoryId);
+    }
+
+    private bool IsAccessoryOwned(string accessoryId)
+    {
+        return SaveManager.Data.ownedAccessoryIds != null && SaveManager.Data.ownedAccessoryIds.Contains(accessoryId);
     }
 
     private void BuildTasksRewardsContent(RectTransform mainContent)
@@ -176,41 +298,266 @@ public class CustomizationSceneManager : MonoBehaviour
         ClearChildren(mainContent);
 
         CreateTitle(mainContent, "Tasks & Rewards");
-        CreateSection(mainContent, "Tasks", "Daily care goals and streak builders.", 760f, new string[]
-        {
-            "Feed your PocketPal - +10 coins",
-            "Check in today - +5 coins",
-            "Accessorize your PocketPal - +15 coins",
-            "Visit the shop - +5 coins"
-        });
 
-        CreateSection(mainContent, "Rewards", "Redeem progress for coins, cosmetics, and habitat pieces.", 760f, new string[]
+        GameObject tasksPanel = CreatePanel("TasksPanel", mainContent, new Color(1f, 1f, 1f, 0.42f), 860f);
+        ConfigurePanelLayout(tasksPanel, 28, 28, 34, 34, 22);
+
+        TMP_Text tasksTitle = CreateText("TasksTitle", tasksPanel.transform, "Tasks", 34, FontStyles.Bold, TextAlignmentOptions.Center);
+        tasksTitle.color = new Color(0.08f, 0.18f, 0.22f);
+
+        TMP_Text tasksSubtitle = CreateText("TasksSubtitle", tasksPanel.transform, "Complete care actions, then claim coins here.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+        tasksSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
+
+        CreateTaskCard(tasksPanel.transform, FeedTaskId, "Feed your panda", "Feed your panda from the PocketPal screen.", 10, SaveManager.Data.snacksFed > 0);
+        CreateTaskCard(tasksPanel.transform, CheckInTaskId, "Check in today", "Open the game and visit your sanctuary.", 5, true);
+        CreateTaskCard(tasksPanel.transform, AccessorizeTaskId, "Accessorize your panda", "Equip sunglasses, a hat, or a t-shirt.", 15, SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0);
+        CreateTaskCard(tasksPanel.transform, VisitShopTaskId, "Visit the shop", "Browse the panda accessory shop.", 5, SaveManager.Data.hasVisitedShop);
+
+        GameObject rewardsPanel = CreatePanel("RewardsPanel", mainContent, new Color(1f, 1f, 1f, 0.42f), 680f);
+        ConfigurePanelLayout(rewardsPanel, 28, 28, 30, 30, 18);
+
+        TMP_Text rewardsTitle = CreateText("RewardsTitle", rewardsPanel.transform, "Rewards", 34, FontStyles.Bold, TextAlignmentOptions.Center);
+        rewardsTitle.color = new Color(0.08f, 0.18f, 0.22f);
+
+        TMP_Text rewardsBody = CreateText("RewardsBody", rewardsPanel.transform, "Reward progress: " + SaveManager.Data.rewardProgress + " / 100\nRedeem unlocked milestones for bonus coins.", 26, FontStyles.Normal, TextAlignmentOptions.Left);
+        rewardsBody.color = new Color(0.12f, 0.24f, 0.28f);
+
+        CreateRewardCard(rewardsPanel.transform, StarterRewardId, "Starter coin grant", "A small boost for opening your sanctuary.", 0, 50);
+        CreateRewardCard(rewardsPanel.transform, CareRewardId, "Care progress bonus", "A bonus for completing care tasks.", 25, 100);
+        CreateRewardCard(rewardsPanel.transform, SanctuaryRewardId, "Sanctuary growth bonus", "A larger bonus for steady progress.", 50, 250);
+    }
+
+    private void CreateTaskCard(Transform parent, string taskId, string title, string description, int coinReward, bool isReady)
+    {
+        bool isComplete = IsTaskComplete(taskId);
+        Color cardColor = isComplete ? new Color(0.72f, 0.76f, 0.76f, 0.78f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
+
+        if (!isComplete && !isReady)
         {
-            "Progress bar placeholder - 25 / 100",
-            "Redeem 50 coins",
-            "Redeem Leaf Hat",
-            "Redeem Garden Background"
-        });
+            cardColor = new Color(0.9f, 0.9f, 0.9f, 0.82f);
+        }
+
+        GameObject card = CreatePanel(taskId + "TaskCard", parent, cardColor, 128f);
+
+        if (!isComplete && isReady)
+        {
+            Button button = card.AddComponent<Button>();
+            Image image = card.GetComponent<Image>();
+            image.raycastTarget = true;
+            button.targetGraphic = image;
+            button.onClick.AddListener(delegate { ClaimTaskReward(taskId, coinReward); });
+        }
+
+        ConfigurePanelLayout(card, 24, 24, 18, 18, 8);
+
+        string status = GetTaskStatusText(isComplete, isReady, coinReward);
+        TMP_Text label = CreateText(taskId + "TaskLabel", card.transform, title + "\n" + description + "\n" + status, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        label.color = new Color(0.08f, 0.18f, 0.22f);
+    }
+
+    private string GetTaskStatusText(bool isComplete, bool isReady, int coinReward)
+    {
+        if (isComplete)
+        {
+            return "Claimed";
+        }
+
+        if (!isReady)
+        {
+            return "Not ready";
+        }
+
+        return "+" + coinReward + " coins - tap to claim";
+    }
+
+    private void ClaimTaskReward(string taskId, int coinReward)
+    {
+        SaveManager.EnsureLoaded();
+
+        if (SaveManager.Data.completedTaskIds == null)
+        {
+            SaveManager.Data.completedTaskIds = new System.Collections.Generic.List<string>();
+        }
+
+        if (SaveManager.Data.completedTaskIds.Contains(taskId))
+        {
+            return;
+        }
+
+        SaveManager.Data.completedTaskIds.Add(taskId);
+        SaveManager.Data.coins += coinReward;
+        SaveManager.Data.rewardProgress += coinReward;
+        SaveManager.Save();
+        SceneManager.LoadScene(TasksRewardsSceneName, LoadSceneMode.Single);
+    }
+
+    private bool IsTaskComplete(string taskId)
+    {
+        return SaveManager.Data.completedTaskIds != null && SaveManager.Data.completedTaskIds.Contains(taskId);
+    }
+
+    private void CreateRewardCard(Transform parent, string rewardId, string title, string description, int requiredProgress, int coinReward)
+    {
+        bool isRedeemed = IsRewardRedeemed(rewardId);
+        bool isUnlocked = SaveManager.Data.rewardProgress >= requiredProgress;
+        Color cardColor = isRedeemed ? new Color(0.72f, 0.76f, 0.76f, 0.78f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
+
+        if (!isRedeemed && !isUnlocked)
+        {
+            cardColor = new Color(0.9f, 0.9f, 0.9f, 0.82f);
+        }
+
+        GameObject card = CreatePanel(rewardId + "RewardCard", parent, cardColor, 128f);
+
+        if (!isRedeemed && isUnlocked)
+        {
+            Button button = card.AddComponent<Button>();
+            Image image = card.GetComponent<Image>();
+            image.raycastTarget = true;
+            button.targetGraphic = image;
+            button.onClick.AddListener(delegate { RedeemReward(rewardId, coinReward); });
+        }
+
+        ConfigurePanelLayout(card, 24, 24, 18, 18, 8);
+
+        string status = GetRewardStatusText(isRedeemed, isUnlocked, requiredProgress, coinReward);
+        TMP_Text label = CreateText(rewardId + "RewardLabel", card.transform, title + "\n" + description + "\n" + status, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        label.color = new Color(0.08f, 0.18f, 0.22f);
+    }
+
+    private string GetRewardStatusText(bool isRedeemed, bool isUnlocked, int requiredProgress, int coinReward)
+    {
+        if (isRedeemed)
+        {
+            return "Redeemed";
+        }
+
+        if (!isUnlocked)
+        {
+            return "Unlocks at " + requiredProgress + " progress";
+        }
+
+        return "+" + coinReward + " coins - tap to redeem";
+    }
+
+    private void RedeemReward(string rewardId, int coinReward)
+    {
+        SaveManager.EnsureLoaded();
+
+        if (SaveManager.Data.redeemedRewardIds == null)
+        {
+            SaveManager.Data.redeemedRewardIds = new System.Collections.Generic.List<string>();
+        }
+
+        if (SaveManager.Data.redeemedRewardIds.Contains(rewardId))
+        {
+            return;
+        }
+
+        SaveManager.Data.redeemedRewardIds.Add(rewardId);
+        SaveManager.Data.coins += coinReward;
+        SaveManager.Save();
+        SceneManager.LoadScene(TasksRewardsSceneName, LoadSceneMode.Single);
+    }
+
+    private bool IsRewardRedeemed(string rewardId)
+    {
+        return SaveManager.Data.redeemedRewardIds != null && SaveManager.Data.redeemedRewardIds.Contains(rewardId);
     }
 
     private void BuildShopContent(RectTransform mainContent)
     {
         ClearChildren(mainContent);
+        SaveManager.Data.hasVisitedShop = true;
+        SaveManager.Save();
 
         CreateTitle(mainContent, "Shop");
-        CreateSection(mainContent, "Buy Coins", "Coin pack placeholders for future purchases.", 520f, new string[]
+
+        CreateCategorySection(mainContent, "Buy Coins", "Coin pack placeholders for future purchases.", 520f, new string[]
         {
             "Small pouch - 100 coins",
             "Garden jar - 500 coins",
             "Sanctuary chest - 1200 coins"
         });
 
-        CreateSection(mainContent, "Decor", "Future habitat and pal cosmetic shop items.", 460f, new string[]
+        GameObject accessoryShop = CreatePanel("AccessoryShopSection", mainContent, new Color(1f, 1f, 1f, 0.42f), 760f);
+        ConfigurePanelLayout(accessoryShop, 28, 28, 34, 34, 24);
+
+        TMP_Text shopTitle = CreateText("AccessoryShopTitle", accessoryShop.transform, "Panda Accessories", 34, FontStyles.Bold, TextAlignmentOptions.Center);
+        shopTitle.color = new Color(0.08f, 0.18f, 0.22f);
+
+        TMP_Text shopSubtitle = CreateText("AccessoryShopSubtitle", accessoryShop.transform, "Buy items here, then equip them in Customization.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+        shopSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
+
+        CreateShopItemCard("SunglassesShopCard", accessoryShop.transform, SunglassesAccessoryId, "Round shades", 0, "Starter item");
+        CreateShopItemCard("HatShopCard", accessoryShop.transform, HatAccessoryId, "Green cap", HatPrice, "Sits right above the panda ears.");
+        CreateShopItemCard("TShirtShopCard", accessoryShop.transform, TShirtAccessoryId, "Blue tee", TShirtPrice, "A tiny shirt with a sunny badge.");
+    }
+
+    private void CreateShopItemCard(string objectName, Transform parent, string accessoryId, string itemName, int price, string description)
+    {
+        bool isOwned = IsAccessoryOwned(accessoryId);
+        bool canAfford = SaveManager.Data.coins >= price;
+        Color cardColor = isOwned ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
+
+        if (!isOwned && !canAfford)
         {
-            "Flower Arch - 250 coins",
-            "Cloud Mobile - 300 coins",
-            "Tiny Scarf - 150 coins"
-        });
+            cardColor = new Color(0.9f, 0.9f, 0.9f, 0.82f);
+        }
+
+        GameObject card = CreatePanel(objectName, parent, cardColor, 150f);
+
+        if (!isOwned && canAfford)
+        {
+            Button button = card.AddComponent<Button>();
+            Image image = card.GetComponent<Image>();
+            image.raycastTarget = true;
+            button.targetGraphic = image;
+            button.onClick.AddListener(delegate { BuyAccessory(accessoryId, price); });
+        }
+
+        ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
+
+        string status = GetShopItemStatus(accessoryId, price);
+        string cardText = itemName + "\n" + description + "\n" + status;
+        TMP_Text label = CreateText(objectName + "Label", card.transform, cardText, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        label.color = new Color(0.08f, 0.18f, 0.22f);
+    }
+
+    private string GetShopItemStatus(string accessoryId, int price)
+    {
+        if (IsAccessoryOwned(accessoryId))
+        {
+            return "Owned";
+        }
+
+        if (SaveManager.Data.coins < price)
+        {
+            return price + " coins - need more coins";
+        }
+
+        return price + " coins - tap to buy";
+    }
+
+    private void BuyAccessory(string accessoryId, int price)
+    {
+        SaveManager.EnsureLoaded();
+
+        if (IsAccessoryOwned(accessoryId) || SaveManager.Data.coins < price)
+        {
+            return;
+        }
+
+        SaveManager.Data.coins -= price;
+
+        if (SaveManager.Data.ownedAccessoryIds == null)
+        {
+            SaveManager.Data.ownedAccessoryIds = new System.Collections.Generic.List<string>();
+        }
+
+        SaveManager.Data.ownedAccessoryIds.Add(accessoryId);
+        SaveManager.Save();
+        SceneManager.LoadScene(ShopSceneName, LoadSceneMode.Single);
     }
 
     private void BuildSettingsContent(RectTransform mainContent)
@@ -372,7 +719,7 @@ public class CustomizationSceneManager : MonoBehaviour
         label.fontStyle = fontStyle;
         label.alignment = alignment;
         label.raycastTarget = false;
-        label.enableWordWrapping = true;
+        label.textWrappingMode = TextWrappingModes.Normal;
 
         LayoutElement layoutElement = textObject.GetComponent<LayoutElement>();
         layoutElement.preferredHeight = Mathf.Max(60f, label.preferredHeight + 16f);
@@ -489,15 +836,7 @@ public class CustomizationSceneManager : MonoBehaviour
 
         pocketPalFeedCount++;
         SaveManager.Data.snacksFed = pocketPalFeedCount;
-        SaveManager.Data.coins += 10;
-        SaveManager.Data.rewardProgress += 10;
         SaveManager.Save();
-
-        TopBarManager topBarManager = FindFirstObjectByType<TopBarManager>();
-        if (topBarManager != null)
-        {
-            topBarManager.RefreshCoinDisplay();
-        }
 
         if (pocketPalBodyText != null)
         {
