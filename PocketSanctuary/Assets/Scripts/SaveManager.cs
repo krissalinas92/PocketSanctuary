@@ -121,6 +121,7 @@ public static class SaveManager
         }
 
         EnsureOwnedAccessory("sunglasses");
+        EnsureOwnedAccessory("tshirt");
 
         if (Data.equippedAccessoryIds == null)
         {
@@ -142,6 +143,11 @@ public static class SaveManager
             Data.ownedHabitatIds.Add("sunny_garden");
         }
 
+        if (!Data.ownedHabitatIds.Contains("moonlit_pond"))
+        {
+            Data.ownedHabitatIds.Add("moonlit_pond");
+        }
+
         if (Data.completedTaskIds == null)
         {
             Data.completedTaskIds = new System.Collections.Generic.List<string>();
@@ -150,6 +156,36 @@ public static class SaveManager
         if (Data.redeemedRewardIds == null)
         {
             Data.redeemedRewardIds = new System.Collections.Generic.List<string>();
+        }
+
+        if (Data.claimedLevelRewardIds == null)
+        {
+            Data.claimedLevelRewardIds = new System.Collections.Generic.List<string>();
+        }
+
+        if (Data.pocketPalLevel < 1)
+        {
+            Data.pocketPalLevel = Mathf.Max(1, Data.friendshipLevel);
+        }
+
+        if (Data.friendshipLevel < Data.pocketPalLevel)
+        {
+            Data.friendshipLevel = Data.pocketPalLevel;
+        }
+
+        if (Data.habitatLevel < 1)
+        {
+            Data.habitatLevel = 1;
+        }
+
+        if (Data.pocketPalXp < 0)
+        {
+            Data.pocketPalXp = 0;
+        }
+
+        if (Data.habitatXp < 0)
+        {
+            Data.habitatXp = 0;
         }
     }
 
