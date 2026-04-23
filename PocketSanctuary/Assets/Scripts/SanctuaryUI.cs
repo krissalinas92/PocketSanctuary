@@ -66,7 +66,8 @@ public class SanctuaryUI : MonoBehaviour
         Exploring,
         NibblingBamboo,
         PlayingInPen,
-        BattingBall
+        BattingBall,
+        SleepingInHammock
     }
 
     private enum PanelKind
@@ -285,6 +286,11 @@ public class SanctuaryUI : MonoBehaviour
         {
             pocketPalPauseTimer -= Time.deltaTime;
             UpdatePocketPalAnimation(false);
+            if (pocketPalPauseTimer <= 0f)
+            {
+                ChooseNewPocketPalTarget();
+            }
+
             return;
         }
 
@@ -306,7 +312,6 @@ public class SanctuaryUI : MonoBehaviour
 
             SetHabitatActivityFromMessage(pocketPalTargetMessage);
             pocketPalPauseTimer = pocketPalPauseTime;
-            ChooseNewPocketPalTarget();
         }
     }
 
@@ -314,7 +319,7 @@ public class SanctuaryUI : MonoBehaviour
     {
         if (Random.value < 0.62f)
         {
-            int targetIndex = Random.Range(0, 3);
+            int targetIndex = Random.Range(0, 4);
             if (targetIndex == 0)
             {
                 pocketPalTargetPosition = new Vector2(-260f, -70f);
@@ -331,7 +336,23 @@ public class SanctuaryUI : MonoBehaviour
                 return;
             }
 
-            pocketPalTargetPosition = new Vector2(225f, -165f);
+            if (targetIndex == 2)
+            {
+                pocketPalTargetPosition = new Vector2(225f, -310f);
+                pocketPalTargetMessage = "Panda is batting the toy ball.";
+                SetHabitatActivity(HabitatActivity.BattingBall);
+                return;
+            }
+
+            pocketPalTargetPosition = new Vector2(0f, -170f);
+            pocketPalTargetMessage = "Panda is napping in the hammock.";
+            SetHabitatActivity(HabitatActivity.SleepingInHammock);
+            return;
+        }
+
+        if (Random.value < 0.28f)
+        {
+            pocketPalTargetPosition = new Vector2(225f, -310f);
             pocketPalTargetMessage = "Panda is batting the toy ball.";
             SetHabitatActivity(HabitatActivity.BattingBall);
             return;
@@ -1187,6 +1208,12 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        if (activityMessage.Contains("napping") || activityMessage.Contains("hammock"))
+        {
+            SetHabitatActivity(HabitatActivity.SleepingInHammock);
+            return;
+        }
+
         SetHabitatActivity(HabitatActivity.Exploring);
     }
 
@@ -1598,7 +1625,23 @@ public class SanctuaryUI : MonoBehaviour
         float squash = 1f + Mathf.Sin(pocketPalAnimationTimer * 2f) * (isMoving ? 0.035f : 0.015f);
         float stretch = 1f - Mathf.Sin(pocketPalAnimationTimer * 2f) * (isMoving ? 0.025f : 0.01f);
 
+        if (!isMoving && habitatActivity == HabitatActivity.SleepingInHammock)
+        {
+            float sleepBob = Mathf.Sin(pocketPalAnimationTimer * 0.8f) * 2f;
+            pocketPalVisualTransform.anchoredPosition = new Vector2(0f, 6f + sleepBob);
+            pocketPalVisualTransform.localRotation = Quaternion.Euler(0f, 0f, -9f);
+            pocketPalVisualTransform.localScale = new Vector3(pocketPalFacingDirection * 0.86f, 0.82f, 1f);
+
+            if (pocketPalShadowTransform != null)
+            {
+                pocketPalShadowTransform.localScale = new Vector3(0.78f, 0.72f, 1f);
+            }
+
+            return;
+        }
+
         pocketPalVisualTransform.anchoredPosition = new Vector2(0f, 12f + bob);
+        pocketPalVisualTransform.localRotation = Quaternion.identity;
         pocketPalVisualTransform.localScale = new Vector3(pocketPalFacingDirection * squash, stretch, 1f);
 
         if (pocketPalShadowTransform != null)
@@ -1988,6 +2031,11 @@ public class SanctuaryUI : MonoBehaviour
             }
         }
 
+        DrawSun(texture, 164, 1602, 66);
+        DrawCloud(texture, 360, 1540, 0.9f);
+        DrawCloud(texture, 748, 1478, 0.72f);
+        DrawCloud(texture, 885, 1660, 0.5f);
+
         DrawEllipse(texture, 250, 950, 430, 90, new Color(0.38f, 0.69f, 0.38f, 1f));
         DrawEllipse(texture, 830, 940, 450, 95, new Color(0.36f, 0.66f, 0.37f, 1f));
         DrawRoundedRect(texture, 0, 980, HabitatBackgroundWidth, 120, 0, lavenderFence);
@@ -2007,16 +2055,11 @@ public class SanctuaryUI : MonoBehaviour
 
         DrawEllipse(texture, 540, 705, 410, 155, meadow);
         DrawHammock(texture, 540, 790);
-        DrawToyBall(texture, 760, 395, 52);
+        DrawToyBall(texture, 760, 650, 52);
 
         DrawHabitatRock(texture, 218, 380, 1.05f);
         DrawHabitatRock(texture, 854, 430, 0.82f);
         DrawHabitatRock(texture, 734, 310, 0.55f);
-
-        DrawRoundedRect(texture, 108, 250, 864, 18, 9, new Color(0.37f, 0.68f, 0.36f, 0.55f));
-        DrawRoundedRect(texture, 190, 218, 700, 12, 6, new Color(0.66f, 0.86f, 0.51f, 0.75f));
-        DrawRoundedRect(texture, 320, 1135, 440, 24, 12, new Color(0.52f, 0.8f, 0.48f, 1f));
-
         texture.Apply();
         return texture;
     }
@@ -2083,14 +2126,58 @@ public class SanctuaryUI : MonoBehaviour
         Color fabric = new Color(0.68f, 0.56f, 0.9f, 1f);
         Color fabricShadow = new Color(0.43f, 0.34f, 0.72f, 0.9f);
         Color fabricHighlight = new Color(0.9f, 0.84f, 1f, 0.92f);
+        Color stitch = new Color(0.32f, 0.26f, 0.58f, 0.9f);
 
         DrawThickLine(texture, centerX - 310, centerY + 84, centerX - 160, centerY - 18, 10, rope);
         DrawThickLine(texture, centerX + 310, centerY + 84, centerX + 160, centerY - 18, 10, rope);
+        DrawThickLine(texture, centerX - 282, centerY + 66, centerX - 146, centerY - 4, 4, new Color(0.96f, 0.88f, 0.58f, 0.95f));
+        DrawThickLine(texture, centerX + 282, centerY + 66, centerX + 146, centerY - 4, 4, new Color(0.96f, 0.88f, 0.58f, 0.95f));
         DrawEllipse(texture, centerX, centerY - 44, 222, 68, fabricShadow);
         DrawEllipse(texture, centerX, centerY - 26, 214, 62, fabric);
         DrawRoundedRect(texture, centerX - 152, centerY - 36, 304, 22, 11, fabricHighlight);
+        DrawRoundedRect(texture, centerX - 132, centerY - 62, 264, 10, 5, stitch);
+        for (int stripe = 0; stripe < 5; stripe++)
+        {
+            int x = centerX - 96 + stripe * 48;
+            DrawRoundedRect(texture, x, centerY - 72, 12, 80, 6, new Color(0.82f, 0.74f, 1f, 0.65f));
+        }
+
+        DrawRoundedRect(texture, centerX - 176, centerY - 10, 352, 8, 4, stitch);
         DrawEllipse(texture, centerX - 190, centerY - 8, 34, 22, rope);
         DrawEllipse(texture, centerX + 190, centerY - 8, 34, 22, rope);
+    }
+
+    private static void DrawSun(Texture2D texture, int centerX, int centerY, int radius)
+    {
+        Color ray = new Color(1f, 0.82f, 0.2f, 0.42f);
+        Color sun = new Color(1f, 0.84f, 0.22f, 1f);
+        Color glow = new Color(1f, 0.92f, 0.38f, 0.45f);
+
+        DrawEllipse(texture, centerX, centerY, radius + 34, radius + 34, glow);
+        for (int index = 0; index < 12; index++)
+        {
+            float angle = index * Mathf.PI * 2f / 12f;
+            int innerX = centerX + Mathf.RoundToInt(Mathf.Cos(angle) * (radius + 8));
+            int innerY = centerY + Mathf.RoundToInt(Mathf.Sin(angle) * (radius + 8));
+            int outerX = centerX + Mathf.RoundToInt(Mathf.Cos(angle) * (radius + 42));
+            int outerY = centerY + Mathf.RoundToInt(Mathf.Sin(angle) * (radius + 42));
+            DrawThickLine(texture, innerX, innerY, outerX, outerY, 7, ray);
+        }
+
+        DrawEllipse(texture, centerX, centerY, radius, radius, sun);
+        DrawEllipse(texture, centerX - radius / 3, centerY + radius / 3, radius / 4, radius / 6, new Color(1f, 0.97f, 0.7f, 0.75f));
+    }
+
+    private static void DrawCloud(Texture2D texture, int centerX, int centerY, float scale)
+    {
+        Color shadow = new Color(0.7f, 0.82f, 0.88f, 0.38f);
+        Color cloud = new Color(1f, 1f, 1f, 0.86f);
+
+        DrawEllipse(texture, centerX, centerY - Mathf.RoundToInt(12f * scale), Mathf.RoundToInt(112f * scale), Mathf.RoundToInt(32f * scale), shadow);
+        DrawEllipse(texture, centerX - Mathf.RoundToInt(52f * scale), centerY, Mathf.RoundToInt(48f * scale), Mathf.RoundToInt(34f * scale), cloud);
+        DrawEllipse(texture, centerX - Mathf.RoundToInt(8f * scale), centerY + Mathf.RoundToInt(22f * scale), Mathf.RoundToInt(58f * scale), Mathf.RoundToInt(44f * scale), cloud);
+        DrawEllipse(texture, centerX + Mathf.RoundToInt(54f * scale), centerY + Mathf.RoundToInt(4f * scale), Mathf.RoundToInt(52f * scale), Mathf.RoundToInt(36f * scale), cloud);
+        DrawRoundedRect(texture, centerX - Mathf.RoundToInt(88f * scale), centerY - Mathf.RoundToInt(18f * scale), Mathf.RoundToInt(176f * scale), Mathf.RoundToInt(36f * scale), Mathf.RoundToInt(18f * scale), cloud);
     }
 
     private static void DrawToyBall(Texture2D texture, int centerX, int centerY, int radius)
