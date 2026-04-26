@@ -9,10 +9,12 @@ public class SanctuaryUI : MonoBehaviour
     private const string HabitatRootName = "Procedural3DHabitat";
     private const string HabitatViewName = "Habitat3DView";
     private const int PandaTextureSize = 256;
-    private const int AccessoryTextureSize = 256;
     private const int ButtonIconTextureSize = 128;
     private const int HabitatBackgroundWidth = 1080;
     private const int HabitatBackgroundHeight = 1920;
+    private const string PandaBaseSpriteResourcePath = "Sprites/Accessories/panda_base_real";
+    private const string WhiteTigerBaseSpriteResourcePath = "Sprites/Accessories/white_tiger_base_real";
+    private const string OtterBaseSpriteResourcePath = "Sprites/Accessories/otter_base_real";
     private const float DrawerTopClearance = 122f;
     private const float DrawerBottomClearance = 138f;
     private const float DrawerSideMargin = 10f;
@@ -45,14 +47,84 @@ public class SanctuaryUI : MonoBehaviour
     private float pocketPalAnimationTimer;
     private float pocketPalFacingDirection = 1f;
     private static Sprite pandaSprite;
+    private static Sprite tigerSprite;
+    private static Sprite otterSprite;
     private static Sprite shadowSprite;
-    private static Sprite sunglassesSprite;
-    private static Sprite hatSprite;
-    private static Sprite shirtSprite;
+    private static readonly string[] EyewearAccessoryIds = new string[]
+    {
+        "eyewear_round_glasses",
+        "eyewear_black_sunglasses",
+        "eyewear_pixel_shades",
+        "eyewear_heart_glasses",
+        "eyewear_blue_round_glasses",
+        "eyewear_star_glasses"
+    };
+    private static readonly string[] HeadwearAccessoryIds = new string[]
+    {
+        "headwear_blue_beanie",
+        "headwear_chef_hat",
+        "headwear_dino_hood",
+        "headwear_crown",
+        "headwear_straw_hat",
+        "headwear_red_cap",
+        "headwear_aviator_hat"
+    };
+    private static readonly string[] ShirtAccessoryIds = new string[]
+    {
+        "shirt_green_bamboo",
+        "shirt_blue_paw",
+        "shirt_yellow_panda",
+        "shirt_blue_hawaiian",
+        "shirt_black_heart",
+        "shirt_red_hoodie"
+    };
+    private static readonly string[] HandheldAccessoryIds = new string[]
+    {
+        "prop_blue_paw_flag",
+        "prop_rainbow_flag",
+        "prop_red_heart_flag",
+        "prop_checkered_flag",
+        "prop_green_leaf_flag",
+        "prop_pirate_flag",
+        "prop_panda_flag"
+    };
+    private static readonly System.Collections.Generic.Dictionary<string, string> AccessorySpriteResourceNames = new System.Collections.Generic.Dictionary<string, string>
+    {
+        { "eyewear_round_glasses", "eyewear_round_glasses" },
+        { "eyewear_black_sunglasses", "eyewear_black_sunglasses" },
+        { "eyewear_pixel_shades", "eyewear_pixel_shades" },
+        { "eyewear_heart_glasses", "eyewear_heart_glasses" },
+        { "eyewear_blue_round_glasses", "eyewear_blue_round_glasses" },
+        { "eyewear_star_glasses", "eyewear_star_glasses" },
+        { "headwear_blue_beanie", "headwear_blue_beanie" },
+        { "headwear_chef_hat", "headwear_chef_hat" },
+        { "headwear_dino_hood", "headwear_dino_hood" },
+        { "headwear_crown", "headwear_crown" },
+        { "headwear_straw_hat", "headwear_straw_hat" },
+        { "headwear_red_cap", "headwear_red_cap" },
+        { "headwear_aviator_hat", "headwear_aviator_hat" },
+        { "shirt_green_bamboo", "shirt_green_bamboo" },
+        { "shirt_blue_paw", "shirt_blue_paw" },
+        { "shirt_yellow_panda", "shirt_yellow_panda" },
+        { "shirt_blue_hawaiian", "shirt_blue_hawaiian" },
+        { "shirt_black_heart", "shirt_black_heart" },
+        { "shirt_red_hoodie", "shirt_red_hoodie" },
+        { "prop_blue_paw_flag", "prop_blue_paw_flag" },
+        { "prop_rainbow_flag", "prop_rainbow_flag" },
+        { "prop_red_heart_flag", "prop_red_heart_flag" },
+        { "prop_checkered_flag", "prop_checkered_flag" },
+        { "prop_green_leaf_flag", "prop_green_leaf_flag" },
+        { "prop_pirate_flag", "prop_pirate_flag" },
+        { "prop_panda_flag", "prop_panda_flag" }
+    };
     private static readonly System.Collections.Generic.Dictionary<string, Sprite> habitatBackgroundSprites = new System.Collections.Generic.Dictionary<string, Sprite>();
     private static readonly System.Collections.Generic.Dictionary<string, Sprite> accessorySpriteCache = new System.Collections.Generic.Dictionary<string, Sprite>();
     private static Sprite customizationButtonIcon;
     private static Sprite rewardsButtonIcon;
+    private const int PandaSpriteVersion = 2;
+    private static int pandaSpriteBuildVersion = -1;
+    private const int WhiteTigerSpriteVersion = 5;
+    private static int whiteTigerSpriteBuildVersion = -1;
     private RectTransform drawerRoot;
     private RectTransform activeDrawer;
     private RectTransform activeDrawerContent;
@@ -225,12 +297,25 @@ public class SanctuaryUI : MonoBehaviour
             pocketPalTransform = existingPal.GetComponent<RectTransform>();
             if (existingPal.Find("PandaVisual") == null)
             {
-                CreatePandaSprite(existingPal);
+                CreatePocketPalSprite(existingPal);
+            }
+            else
+            {
+                RefreshPocketPalVisual();
             }
 
-            if (existingPal.Find("PocketPalName") == null)
+            Transform nameTransform = existingPal.Find("PocketPalName");
+            if (nameTransform == null)
             {
                 CreateHomeLabel("PocketPalName", existingPal, GetPocketPalDisplayName(), new Vector2(0.5f, -0.36f), 30);
+            }
+            else
+            {
+                TMP_Text nameLabel = nameTransform.GetComponent<TMP_Text>();
+                if (nameLabel != null)
+                {
+                    nameLabel.text = GetPocketPalDisplayName();
+                }
             }
 
             return;
@@ -256,7 +341,7 @@ public class SanctuaryUI : MonoBehaviour
         button.targetGraphic = image;
         button.onClick.AddListener(OnAnimalClicked);
 
-        CreatePandaSprite(pocketPal.transform);
+        CreatePocketPalSprite(pocketPal.transform);
         CreateHomeLabel("PocketPalName", pocketPal.transform, GetPocketPalDisplayName(), new Vector2(0.5f, -0.36f), 30);
     }
 
@@ -344,9 +429,17 @@ public class SanctuaryUI : MonoBehaviour
                 return;
             }
 
-            pocketPalTargetPosition = new Vector2(0f, -170f);
-            pocketPalTargetMessage = "Panda is napping in the hammock.";
-            SetHabitatActivity(HabitatActivity.SleepingInHammock);
+            if (SaveManager.Data.selectedHabitatId == "moonlit_pond")
+            {
+                pocketPalTargetPosition = new Vector2(0f, -245f);
+                pocketPalTargetMessage = "Panda is napping in the bed.";
+                SetHabitatActivity(HabitatActivity.SleepingInHammock);
+                return;
+            }
+
+            pocketPalTargetPosition = new Vector2(225f, -310f);
+            pocketPalTargetMessage = "Panda is batting the toy ball.";
+            SetHabitatActivity(HabitatActivity.BattingBall);
             return;
         }
 
@@ -873,7 +966,7 @@ public class SanctuaryUI : MonoBehaviour
             Destroy(existingShadow.gameObject);
         }
 
-        CreatePandaSprite(pocketPalTransform);
+        CreatePocketPalSprite(pocketPalTransform);
     }
 
     private Transform FindCanvasChild(string childName)
@@ -1208,7 +1301,7 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
-        if (activityMessage.Contains("napping") || activityMessage.Contains("hammock"))
+        if (activityMessage.Contains("napping") || activityMessage.Contains("hammock") || activityMessage.Contains("bed"))
         {
             SetHabitatActivity(HabitatActivity.SleepingInHammock);
             return;
@@ -1453,9 +1546,9 @@ public class SanctuaryUI : MonoBehaviour
         return null;
     }
 
-    private void CreatePandaSprite(Transform parent)
+    private void CreatePocketPalSprite(Transform parent)
     {
-        EnsurePandaSprites();
+        EnsurePocketPalSprites();
 
         GameObject shadowObject = new GameObject("PocketPalShadow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         shadowObject.transform.SetParent(parent, false);
@@ -1493,7 +1586,7 @@ public class SanctuaryUI : MonoBehaviour
         pocketPalSpriteTransform.anchoredPosition = Vector2.zero;
 
         Image pandaImage = spriteObject.GetComponent<Image>();
-        pandaImage.sprite = pandaSprite;
+        pandaImage.sprite = GetSelectedPocketPalSprite();
         pandaImage.preserveAspect = true;
         pandaImage.raycastTarget = false;
 
@@ -1502,13 +1595,126 @@ public class SanctuaryUI : MonoBehaviour
 
     private void CreateAccessoryLayers(Transform visualParent)
     {
-        string eyewearId = GetEquippedAccessoryInCategory(new string[] { "sunglasses", "monocle", "aviators" });
-        string headwearId = GetEquippedAccessoryInCategory(new string[] { "hat", "beanie", "headband", "crown" });
-        string shirtId = GetEquippedAccessoryInCategory(new string[] { "tshirt", "shirt_lakers", "shirt_bulls", "shirt_celtics", "shirt_knicks", "shirt_nirvana", "shirt_metallica" });
+        string pocketPalId = SaveManager.Data != null ? SaveManager.Data.selectedPocketPalId : "panda";
+        string eyewearId = GetEquippedAccessoryInCategory(EyewearAccessoryIds);
+        string headwearId = GetEquippedAccessoryInCategory(HeadwearAccessoryIds);
+        string shirtId = GetEquippedAccessoryInCategory(ShirtAccessoryIds);
+        string handheldId = GetEquippedAccessoryInCategory(HandheldAccessoryIds);
 
-        CreateAccessoryLayer("EyewearAccessory", visualParent, GetAccessorySprite(eyewearId), new Vector2(0f, GetEyewearY(eyewearId)), GetEyewearSize(eyewearId), !string.IsNullOrEmpty(eyewearId));
-        CreateAccessoryLayer("HeadwearAccessory", visualParent, GetAccessorySprite(headwearId), new Vector2(0f, 115f), new Vector2(180f, 106f), !string.IsNullOrEmpty(headwearId));
-        CreateAccessoryLayer("ShirtAccessory", visualParent, GetAccessorySprite(shirtId), new Vector2(0f, -52f), new Vector2(238f, 184f), !string.IsNullOrEmpty(shirtId));
+        Sprite shirtSprite = GetAccessorySprite(shirtId, pocketPalId);
+        Sprite handheldSprite = GetAccessorySprite(handheldId, pocketPalId);
+        Sprite headwearSprite = GetAccessorySprite(headwearId, pocketPalId);
+        Sprite eyewearSprite = GetAccessorySprite(eyewearId, pocketPalId);
+
+        float textureToDisplayScale = GetAccessoryTextureToDisplayScale();
+        float offsetScale = GetAccessoryOffsetScale(textureToDisplayScale);
+        float shirtOffsetX = 0f;
+        float shirtOffsetY = -52f;
+        float shirtMultiplier = 0.90f;
+        Vector2 shirtFallbackSize = new Vector2(186f, 122f);
+        float headwearOffsetX = 0f;
+        float headwearOffsetY = 114f;
+        float headwearMultiplier = 1f;
+        Vector2 headwearFallbackSize = new Vector2(190f, 130f);
+        float eyewearOffsetX = 7f;
+        float eyewearOffsetY = 56f;
+        float eyewearMultiplier = 0.84f;
+        Vector2 eyewearFallbackSize = new Vector2(126f, 66f);
+
+        // Species-specific fit tuning. Panda values remain untouched.
+        if (pocketPalId == "white_tiger")
+        {
+            shirtOffsetY = -62f;
+            shirtMultiplier = 0.84f;
+            shirtFallbackSize = new Vector2(176f, 116f);
+            eyewearOffsetX = 4f;
+            eyewearOffsetY = 54f;
+            eyewearMultiplier = 0.80f;
+            eyewearFallbackSize = new Vector2(118f, 62f);
+
+            if (shirtId == "shirt_red_hoodie")
+            {
+                shirtOffsetX = 3f;
+                shirtOffsetY = -65f;
+                shirtMultiplier = 0.87f;
+                shirtFallbackSize = new Vector2(184f, 121f);
+            }
+        }
+
+        if (headwearId == "headwear_chef_hat")
+        {
+            headwearOffsetX = 2f;
+            headwearOffsetY = 152f;
+            headwearMultiplier = 1.07f;
+            headwearFallbackSize = new Vector2(203f, 139f);
+        }
+        else if (headwearId == "headwear_crown")
+        {
+            headwearOffsetY = 182f;
+        }
+        else if (headwearId == "headwear_straw_hat")
+        {
+            headwearOffsetY = 150f;
+        }
+        else if (headwearId == "headwear_red_cap")
+        {
+            headwearOffsetY = 160f;
+        }
+
+        // Some wider glasses styles need extra scale but should keep the same Y alignment.
+        if (eyewearId == "eyewear_pixel_shades")
+        {
+            eyewearMultiplier *= 1.16f;
+            eyewearFallbackSize = new Vector2(eyewearFallbackSize.x * 1.16f, eyewearFallbackSize.y * 1.16f);
+        }
+        else if (eyewearId == "eyewear_black_sunglasses")
+        {
+            eyewearMultiplier *= 1.10f;
+            eyewearFallbackSize = new Vector2(eyewearFallbackSize.x * 1.10f, eyewearFallbackSize.y * 1.10f);
+        }
+
+        // Shirt-specific fit tuning.
+        if (shirtId == "shirt_green_bamboo")
+        {
+            shirtOffsetY -= 8f;
+        }
+        else if (shirtId == "shirt_red_hoodie")
+        {
+            shirtOffsetY -= 5f;
+        }
+
+        // Layered accessories from the provided panda customization sheet.
+        CreateAccessoryLayer(
+            "ShirtAccessory",
+            visualParent,
+            shirtSprite,
+            new Vector2(shirtOffsetX * offsetScale, shirtOffsetY * offsetScale),
+            GetAccessoryLayerSize(shirtSprite, textureToDisplayScale, shirtMultiplier, shirtFallbackSize),
+            !string.IsNullOrEmpty(shirtId));
+
+        CreateAccessoryLayer(
+            "HandheldAccessory",
+            visualParent,
+            handheldSprite,
+            new Vector2(74f * offsetScale, -24f * offsetScale),
+            GetAccessoryLayerSize(handheldSprite, textureToDisplayScale, 1.06f, new Vector2(172f, 172f)),
+            !string.IsNullOrEmpty(handheldId));
+
+        CreateAccessoryLayer(
+            "HeadwearAccessory",
+            visualParent,
+            headwearSprite,
+            new Vector2(headwearOffsetX * offsetScale, headwearOffsetY * offsetScale),
+            GetAccessoryLayerSize(headwearSprite, textureToDisplayScale, headwearMultiplier, headwearFallbackSize),
+            !string.IsNullOrEmpty(headwearId));
+
+        CreateAccessoryLayer(
+            "EyewearAccessory",
+            visualParent,
+            eyewearSprite,
+            new Vector2(eyewearOffsetX * offsetScale, eyewearOffsetY * offsetScale),
+            GetAccessoryLayerSize(eyewearSprite, textureToDisplayScale, eyewearMultiplier, eyewearFallbackSize),
+            !string.IsNullOrEmpty(eyewearId));
     }
 
     private string GetEquippedAccessoryInCategory(string[] accessoryIds)
@@ -1522,16 +1728,6 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         return "";
-    }
-
-    private float GetEyewearY(string accessoryId)
-    {
-        return accessoryId == "monocle" ? 50f : 43f;
-    }
-
-    private Vector2 GetEyewearSize(string accessoryId)
-    {
-        return accessoryId == "monocle" ? new Vector2(150f, 108f) : accessoryId == "aviators" ? new Vector2(230f, 104f) : new Vector2(230f, 112f);
     }
 
     private bool HasEquippedAccessory(string accessoryId)
@@ -1563,45 +1759,158 @@ public class SanctuaryUI : MonoBehaviour
         accessoryImage.raycastTarget = false;
     }
 
-    private static Sprite GetAccessorySprite(string accessoryId)
+    private float GetAccessoryTextureToDisplayScale()
+    {
+        if (pocketPalSpriteTransform == null)
+        {
+            return 1f;
+        }
+
+        Sprite baseSprite = GetSelectedPocketPalSprite();
+        if (baseSprite == null || baseSprite.rect.height <= 0.01f)
+        {
+            return 1f;
+        }
+
+        Vector2 fittedBaseSize = GetPreservedSize(baseSprite, pocketPalSpriteTransform.sizeDelta);
+        return fittedBaseSize.y / baseSprite.rect.height;
+    }
+
+    private static float GetAccessoryOffsetScale(float textureToDisplayScale)
+    {
+        const float referenceScale = 285f / 234f;
+        if (textureToDisplayScale <= 0.01f)
+        {
+            return 1f;
+        }
+
+        return Mathf.Clamp(textureToDisplayScale / referenceScale, 0.8f, 1.35f);
+    }
+
+    private static Vector2 GetAccessoryLayerSize(Sprite sprite, float textureToDisplayScale, float categoryMultiplier, Vector2 fallbackSize)
+    {
+        if (sprite == null || textureToDisplayScale <= 0.01f)
+        {
+            return fallbackSize;
+        }
+
+        float width = sprite.rect.width * textureToDisplayScale * categoryMultiplier;
+        float height = sprite.rect.height * textureToDisplayScale * categoryMultiplier;
+        return new Vector2(width, height);
+    }
+
+    private static Vector2 GetPreservedSize(Sprite sprite, Vector2 containerSize)
+    {
+        if (sprite == null || sprite.rect.height <= 0.01f || sprite.rect.width <= 0.01f)
+        {
+            return containerSize;
+        }
+
+        float spriteAspect = sprite.rect.width / sprite.rect.height;
+        float containerAspect = Mathf.Abs(containerSize.y) > 0.01f ? containerSize.x / containerSize.y : spriteAspect;
+        if (spriteAspect > containerAspect)
+        {
+            float width = containerSize.x;
+            return new Vector2(width, width / spriteAspect);
+        }
+
+        float height = containerSize.y;
+        return new Vector2(height * spriteAspect, height);
+    }
+
+    private static Sprite GetAccessorySprite(string accessoryId, string pocketPalId)
     {
         if (string.IsNullOrEmpty(accessoryId))
         {
             return null;
         }
 
-        if (accessoryId == "sunglasses") return sunglassesSprite;
-        if (accessoryId == "hat") return hatSprite;
-        if (accessoryId == "tshirt") return shirtSprite;
-
-        if (accessorySpriteCache.ContainsKey(accessoryId))
+        if (!AccessorySpriteResourceNames.ContainsKey(accessoryId))
         {
-            return accessorySpriteCache[accessoryId];
+            return null;
         }
 
-        Texture2D texture;
-        if (accessoryId == "monocle" || accessoryId == "aviators")
+        string speciesPath = GetAccessoryResourcePath(accessoryId, pocketPalId);
+        Sprite speciesSprite = GetCachedAccessorySprite(speciesPath);
+        if (speciesSprite != null)
         {
-            texture = CreateEyewearTexture(accessoryId);
-        }
-        else if (accessoryId == "beanie" || accessoryId == "headband" || accessoryId == "crown")
-        {
-            texture = CreateHeadwearTexture(accessoryId);
-        }
-        else
-        {
-            texture = CreateShirtTexture(accessoryId);
+            return speciesSprite;
         }
 
-        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, AccessoryTextureSize, AccessoryTextureSize), new Vector2(0.5f, 0.5f), 100f);
-        accessorySpriteCache[accessoryId] = sprite;
+        if (pocketPalId != "panda")
+        {
+            string pandaFallbackPath = GetAccessoryResourcePath(accessoryId, "panda");
+            Sprite fallbackSprite = GetCachedAccessorySprite(pandaFallbackPath);
+            if (fallbackSprite != null)
+            {
+                return fallbackSprite;
+            }
+        }
+
+        return null;
+    }
+
+    private static Sprite GetCachedAccessorySprite(string resourcePath)
+    {
+        if (string.IsNullOrEmpty(resourcePath))
+        {
+            return null;
+        }
+
+        if (accessorySpriteCache.ContainsKey(resourcePath))
+        {
+            return accessorySpriteCache[resourcePath];
+        }
+
+        Sprite sprite = TryCreateSpriteFromResource(resourcePath);
+        if (sprite != null)
+        {
+            accessorySpriteCache[resourcePath] = sprite;
+        }
+
         return sprite;
+    }
+
+    private static string GetAccessoryResourcePath(string accessoryId, string pocketPalId)
+    {
+        if (!AccessorySpriteResourceNames.ContainsKey(accessoryId))
+        {
+            return string.Empty;
+        }
+
+        string spriteName = AccessorySpriteResourceNames[accessoryId];
+        if (pocketPalId == "white_tiger")
+        {
+            return "Sprites/Accessories/white_tiger_" + spriteName;
+        }
+
+        if (pocketPalId == "otter")
+        {
+            return "Sprites/Accessories/otter_" + spriteName;
+        }
+
+        return "Sprites/Accessories/" + spriteName;
     }
 
     private string GetPocketPalDisplayName()
     {
-        string savedName = SaveManager.Data.selectedPocketPalName;
-        return string.IsNullOrWhiteSpace(savedName) ? "Panda" : savedName;
+        if (!string.IsNullOrWhiteSpace(SaveManager.Data.selectedPocketPalName))
+        {
+            return SaveManager.Data.selectedPocketPalName;
+        }
+
+        string pocketPalId = SaveManager.Data.selectedPocketPalId;
+        if (pocketPalId == "white_tiger")
+        {
+            return "White Tiger";
+        }
+
+        if (pocketPalId == "otter")
+        {
+            return "Otter";
+        }
+
+        return "Panda";
     }
 
     private void UpdateFacingDirection(Vector2 previousPosition, Vector2 nextPosition)
@@ -1620,6 +1929,7 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        float speciesVisualScale = GetPocketPalVisualScale();
         pocketPalAnimationTimer += Time.deltaTime * (isMoving ? 7f : 3f);
         float bob = Mathf.Sin(pocketPalAnimationTimer) * (isMoving ? 10f : 4f);
         float squash = 1f + Mathf.Sin(pocketPalAnimationTimer * 2f) * (isMoving ? 0.035f : 0.015f);
@@ -1630,7 +1940,7 @@ public class SanctuaryUI : MonoBehaviour
             float sleepBob = Mathf.Sin(pocketPalAnimationTimer * 0.8f) * 2f;
             pocketPalVisualTransform.anchoredPosition = new Vector2(0f, 6f + sleepBob);
             pocketPalVisualTransform.localRotation = Quaternion.Euler(0f, 0f, -9f);
-            pocketPalVisualTransform.localScale = new Vector3(pocketPalFacingDirection * 0.86f, 0.82f, 1f);
+            pocketPalVisualTransform.localScale = new Vector3(pocketPalFacingDirection * 0.86f * speciesVisualScale, 0.82f * speciesVisualScale, 1f);
 
             if (pocketPalShadowTransform != null)
             {
@@ -1642,7 +1952,7 @@ public class SanctuaryUI : MonoBehaviour
 
         pocketPalVisualTransform.anchoredPosition = new Vector2(0f, 12f + bob);
         pocketPalVisualTransform.localRotation = Quaternion.identity;
-        pocketPalVisualTransform.localScale = new Vector3(pocketPalFacingDirection * squash, stretch, 1f);
+        pocketPalVisualTransform.localScale = new Vector3(pocketPalFacingDirection * squash * speciesVisualScale, stretch * speciesVisualScale, 1f);
 
         if (pocketPalShadowTransform != null)
         {
@@ -1651,32 +1961,121 @@ public class SanctuaryUI : MonoBehaviour
         }
     }
 
-    private static void EnsurePandaSprites()
+    private float GetPocketPalVisualScale()
     {
-        if (pandaSprite == null)
+        if (SaveManager.Data == null)
         {
-            pandaSprite = Sprite.Create(CreatePandaTexture(), new Rect(0f, 0f, PandaTextureSize, PandaTextureSize), new Vector2(0.5f, 0.5f), 100f);
+            return 1f;
+        }
+
+        if (SaveManager.Data.selectedPocketPalId == "white_tiger")
+        {
+            // Normalize tiger width against panda using sprite aspect ratios.
+            if (pandaSprite != null && tigerSprite != null && pandaSprite.rect.height > 0.01f && tigerSprite.rect.height > 0.01f)
+            {
+                float pandaAspect = pandaSprite.rect.width / pandaSprite.rect.height;
+                float tigerAspect = tigerSprite.rect.width / tigerSprite.rect.height;
+                float normalizedScale = pandaAspect / tigerAspect;
+                return Mathf.Clamp(normalizedScale, 0.84f, 1f);
+            }
+
+            return 0.88f;
+        }
+
+        return 1f;
+    }
+
+    private static void EnsurePocketPalSprites()
+    {
+        if (pandaSprite == null || pandaSpriteBuildVersion != PandaSpriteVersion)
+        {
+            if (pandaSprite != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(pandaSprite);
+                }
+                else
+                {
+                    DestroyImmediate(pandaSprite);
+                }
+            }
+
+            pandaSprite = TryCreateSpriteFromResource(PandaBaseSpriteResourcePath);
+            if (pandaSprite == null)
+            {
+                pandaSprite = Sprite.Create(CreatePandaTexture(), new Rect(0f, 0f, PandaTextureSize, PandaTextureSize), new Vector2(0.5f, 0.5f), 100f);
+            }
+
+            pandaSpriteBuildVersion = PandaSpriteVersion;
+        }
+
+        if (tigerSprite == null || whiteTigerSpriteBuildVersion != WhiteTigerSpriteVersion)
+        {
+            if (tigerSprite != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(tigerSprite);
+                }
+                else
+                {
+                    DestroyImmediate(tigerSprite);
+                }
+            }
+
+            tigerSprite = TryCreateSpriteFromResource(WhiteTigerBaseSpriteResourcePath);
+            if (tigerSprite == null)
+            {
+                tigerSprite = Sprite.Create(CreateWhiteTigerTexture(), new Rect(0f, 0f, PandaTextureSize, PandaTextureSize), new Vector2(0.5f, 0.5f), 100f);
+            }
+
+            whiteTigerSpriteBuildVersion = WhiteTigerSpriteVersion;
+        }
+
+        if (otterSprite == null)
+        {
+            otterSprite = TryCreateSpriteFromResource(OtterBaseSpriteResourcePath);
+            if (otterSprite == null)
+            {
+                otterSprite = Sprite.Create(CreateOtterTexture(), new Rect(0f, 0f, PandaTextureSize, PandaTextureSize), new Vector2(0.5f, 0.5f), 100f);
+            }
         }
 
         if (shadowSprite == null)
         {
             shadowSprite = Sprite.Create(CreateShadowTexture(), new Rect(0f, 0f, 128f, 48f), new Vector2(0.5f, 0.5f), 100f);
         }
+    }
 
-        if (sunglassesSprite == null)
+    private static Sprite TryCreateSpriteFromResource(string resourcePath)
+    {
+        Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+        if (texture == null)
         {
-            sunglassesSprite = Sprite.Create(CreateSunglassesTexture(), new Rect(0f, 0f, AccessoryTextureSize, AccessoryTextureSize), new Vector2(0.5f, 0.5f), 100f);
+            return null;
         }
 
-        if (hatSprite == null)
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        Rect rect = new Rect(0f, 0f, texture.width, texture.height);
+        return Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    private Sprite GetSelectedPocketPalSprite()
+    {
+        string pocketPalId = SaveManager.Data.selectedPocketPalId;
+        if (pocketPalId == "white_tiger")
         {
-            hatSprite = Sprite.Create(CreateHatTexture(), new Rect(0f, 0f, AccessoryTextureSize, AccessoryTextureSize), new Vector2(0.5f, 0.5f), 100f);
+            return tigerSprite;
         }
 
-        if (shirtSprite == null)
+        if (pocketPalId == "otter")
         {
-            shirtSprite = Sprite.Create(CreateShirtTexture(), new Rect(0f, 0f, AccessoryTextureSize, AccessoryTextureSize), new Vector2(0.5f, 0.5f), 100f);
+            return otterSprite;
         }
+
+        return pandaSprite;
     }
 
     private static void EnsureButtonIcons()
@@ -1703,36 +2102,213 @@ public class SanctuaryUI : MonoBehaviour
 
         texture.SetPixels(pixels);
 
-        Color black = new Color(0.05f, 0.06f, 0.055f, 1f);
-        Color blackHighlight = new Color(0.13f, 0.14f, 0.13f, 1f);
-        Color white = new Color(0.96f, 0.97f, 0.9f, 1f);
-        Color whiteShadow = new Color(0.78f, 0.84f, 0.82f, 1f);
+        Color black = new Color(0.08f, 0.09f, 0.11f, 1f);
+        Color blackSoft = new Color(0.15f, 0.16f, 0.2f, 1f);
+        Color white = new Color(0.985f, 0.985f, 0.975f, 1f);
+        Color whiteShadow = new Color(0.84f, 0.88f, 0.93f, 1f);
+        Color muzzle = new Color(0.99f, 0.965f, 0.93f, 1f);
+        Color blush = new Color(1f, 0.79f, 0.81f, 0.58f);
+        Color nose = new Color(0.24f, 0.18f, 0.21f, 1f);
+        Color mouth = new Color(0.3f, 0.2f, 0.24f, 1f);
+        Color tongue = new Color(0.95f, 0.36f, 0.42f, 1f);
 
-        DrawEllipse(texture, 72, 178, 38, 42, black);
-        DrawEllipse(texture, 184, 178, 38, 42, black);
-        DrawEllipse(texture, 128, 104, 64, 72, black);
-        DrawEllipse(texture, 128, 116, 55, 64, whiteShadow);
-        DrawEllipse(texture, 128, 124, 50, 58, white);
+        // Body.
+        DrawEllipse(texture, 128, 92, 62, 72, black);
+        DrawEllipse(texture, 128, 97, 52, 64, whiteShadow);
+        DrawEllipse(texture, 128, 104, 48, 56, white);
+        DrawEllipse(texture, 128, 88, 34, 44, muzzle);
 
-        DrawEllipse(texture, 68, 94, 26, 48, black);
-        DrawEllipse(texture, 188, 94, 26, 48, black);
-        DrawEllipse(texture, 88, 46, 34, 24, black);
-        DrawEllipse(texture, 168, 46, 34, 24, black);
+        // Feet.
+        DrawEllipse(texture, 97, 34, 21, 14, black);
+        DrawEllipse(texture, 159, 34, 21, 14, black);
+        DrawEllipse(texture, 97, 34, 16, 10, white);
+        DrawEllipse(texture, 159, 34, 16, 10, white);
 
-        DrawEllipse(texture, 128, 162, 76, 70, whiteShadow);
-        DrawEllipse(texture, 128, 170, 72, 66, white);
-        DrawEllipse(texture, 95, 170, 28, 34, black);
-        DrawEllipse(texture, 161, 170, 28, 34, black);
-        DrawEllipse(texture, 91, 178, 9, 12, blackHighlight);
-        DrawEllipse(texture, 157, 178, 9, 12, blackHighlight);
+        // Head and ears.
+        DrawEllipse(texture, 128, 172, 78, 68, whiteShadow);
+        DrawEllipse(texture, 128, 178, 70, 60, white);
+        DrawEllipse(texture, 86, 212, 23, 21, black);
+        DrawEllipse(texture, 170, 212, 23, 21, black);
+        DrawEllipse(texture, 86, 212, 14, 13, blackSoft);
+        DrawEllipse(texture, 170, 212, 14, 13, blackSoft);
+        DrawEllipse(texture, 128, 224, 10, 7, white);
+        DrawEllipse(texture, 120, 221, 5, 5, white);
+        DrawEllipse(texture, 136, 221, 5, 5, white);
 
-        DrawEllipse(texture, 97, 168, 8, 10, Color.white);
-        DrawEllipse(texture, 159, 168, 8, 10, Color.white);
-        DrawEllipse(texture, 99, 168, 4, 5, black);
-        DrawEllipse(texture, 157, 168, 4, 5, black);
+        // Front paws (short and rounded).
+        DrawRoundedRect(texture, 78, 56, 24, 56, 12, black);
+        DrawRoundedRect(texture, 154, 56, 24, 56, 12, black);
+        DrawEllipse(texture, 90, 57, 8, 7, blackSoft);
+        DrawEllipse(texture, 166, 57, 8, 7, blackSoft);
 
-        DrawEllipse(texture, 128, 147, 13, 9, black);
-        DrawEllipse(texture, 108, 206, 20, 12, new Color(1f, 1f, 1f, 0.22f));
+        // Eye patches.
+        DrawEllipse(texture, 101, 168, 23, 25, black);
+        DrawEllipse(texture, 155, 168, 23, 25, black);
+
+        // Eyes.
+        DrawEllipse(texture, 102, 168, 12, 13, Color.white);
+        DrawEllipse(texture, 154, 168, 12, 13, Color.white);
+        DrawEllipse(texture, 102, 167, 7, 8, black);
+        DrawEllipse(texture, 154, 167, 7, 8, black);
+        DrawEllipse(texture, 106, 171, 3, 3, Color.white);
+        DrawEllipse(texture, 158, 171, 3, 3, Color.white);
+
+        // Muzzle, nose, smile.
+        DrawEllipse(texture, 128, 150, 33, 23, muzzle);
+        DrawEllipse(texture, 112, 148, 13, 11, white);
+        DrawEllipse(texture, 144, 148, 13, 11, white);
+        DrawEllipse(texture, 128, 152, 9, 6, nose);
+        DrawRoundedRect(texture, 126, 145, 4, 7, 2, mouth);
+        DrawEllipse(texture, 121, 145, 5, 3, mouth);
+        DrawEllipse(texture, 135, 145, 5, 3, mouth);
+        DrawEllipse(texture, 128, 141, 5, 4, tongue);
+
+        // Cheeks and soft highlight.
+        DrawEllipse(texture, 97, 158, 10, 7, blush);
+        DrawEllipse(texture, 159, 158, 10, 7, blush);
+        DrawEllipse(texture, 108, 204, 18, 10, new Color(1f, 1f, 1f, 0.24f));
+
+        texture.Apply();
+        return texture;
+    }
+
+    private static Texture2D CreateWhiteTigerTexture()
+    {
+        Texture2D texture = new Texture2D(PandaTextureSize, PandaTextureSize, TextureFormat.RGBA32, false);
+        Color[] pixels = new Color[PandaTextureSize * PandaTextureSize];
+        for (int index = 0; index < pixels.Length; index++)
+        {
+            pixels[index] = Color.clear;
+        }
+
+        texture.SetPixels(pixels);
+
+        Color furWhite = new Color(0.985f, 0.985f, 0.975f, 1f);
+        Color furShadow = new Color(0.82f, 0.87f, 0.93f, 1f);
+        Color cream = new Color(0.99f, 0.95f, 0.86f, 1f);
+        Color stripe = new Color(0.23f, 0.27f, 0.34f, 0.96f);
+        Color innerEar = new Color(0.96f, 0.77f, 0.82f, 1f);
+        Color eyeRing = new Color(0.72f, 0.76f, 0.84f, 0.92f);
+        Color eyeWhite = new Color(0.995f, 0.995f, 1f, 1f);
+        Color pupil = new Color(0.08f, 0.08f, 0.1f, 1f);
+        Color nose = new Color(0.72f, 0.54f, 0.59f, 1f);
+        Color blush = new Color(1f, 0.8f, 0.8f, 0.55f);
+        Color mouth = new Color(0.31f, 0.21f, 0.24f, 1f);
+        Color pawDark = new Color(0.27f, 0.31f, 0.39f, 1f);
+
+        // Tail behind body.
+        DrawEllipse(texture, 199, 104, 20, 50, furShadow);
+        DrawEllipse(texture, 199, 100, 16, 44, furWhite);
+        DrawEllipse(texture, 194, 126, 5, 8, stripe);
+        DrawEllipse(texture, 194, 104, 5, 8, stripe);
+        DrawEllipse(texture, 194, 82, 5, 8, stripe);
+
+        // Body base.
+        DrawEllipse(texture, 128, 90, 64, 72, furShadow);
+        DrawEllipse(texture, 128, 98, 56, 63, furWhite);
+        DrawEllipse(texture, 128, 86, 34, 47, cream);
+
+        // Back feet.
+        DrawEllipse(texture, 99, 34, 22, 14, furShadow);
+        DrawEllipse(texture, 157, 34, 22, 14, furShadow);
+        DrawEllipse(texture, 99, 34, 16, 10, furWhite);
+        DrawEllipse(texture, 157, 34, 16, 10, furWhite);
+
+        // Head and ears.
+        DrawEllipse(texture, 128, 171, 76, 67, furShadow);
+        DrawEllipse(texture, 128, 178, 68, 58, furWhite);
+        DrawEllipse(texture, 86, 212, 23, 21, furShadow);
+        DrawEllipse(texture, 170, 212, 23, 21, furShadow);
+        DrawEllipse(texture, 86, 212, 17, 15, furWhite);
+        DrawEllipse(texture, 170, 212, 17, 15, furWhite);
+        DrawEllipse(texture, 86, 210, 9, 7, innerEar);
+        DrawEllipse(texture, 170, 210, 9, 7, innerEar);
+
+        // Front paws (shorter and lower to avoid face overlap).
+        DrawRoundedRect(texture, 79, 56, 27, 60, 12, pawDark);
+        DrawRoundedRect(texture, 150, 56, 27, 60, 12, pawDark);
+        DrawEllipse(texture, 92, 58, 10, 8, furWhite);
+        DrawEllipse(texture, 164, 58, 10, 8, furWhite);
+
+        // Muzzle and cheeks.
+        DrawEllipse(texture, 128, 154, 37, 26, cream);
+        DrawEllipse(texture, 111, 151, 15, 13, furWhite);
+        DrawEllipse(texture, 145, 151, 15, 13, furWhite);
+        DrawEllipse(texture, 97, 159, 9, 6, blush);
+        DrawEllipse(texture, 159, 159, 9, 6, blush);
+
+        // Eyes.
+        DrawEllipse(texture, 104, 170, 14, 15, eyeRing);
+        DrawEllipse(texture, 152, 170, 14, 15, eyeRing);
+        DrawEllipse(texture, 104, 169, 11, 12, eyeWhite);
+        DrawEllipse(texture, 152, 169, 11, 12, eyeWhite);
+        DrawEllipse(texture, 104, 167, 5, 6, pupil);
+        DrawEllipse(texture, 152, 167, 5, 6, pupil);
+        DrawEllipse(texture, 107, 172, 2, 2, Color.white);
+        DrawEllipse(texture, 155, 172, 2, 2, Color.white);
+
+        // Nose and mouth.
+        DrawEllipse(texture, 128, 154, 9, 6, nose);
+        DrawRoundedRect(texture, 126, 146, 4, 8, 2, mouth);
+        DrawEllipse(texture, 121, 145, 5, 3, mouth);
+        DrawEllipse(texture, 135, 145, 5, 3, mouth);
+
+        // Head stripes (kept above/around eyes, never through them).
+        DrawRoundedRect(texture, 123, 197, 10, 13, 5, stripe);
+        DrawRoundedRect(texture, 111, 189, 8, 13, 4, stripe);
+        DrawRoundedRect(texture, 137, 189, 8, 13, 4, stripe);
+        DrawRoundedRect(texture, 84, 164, 7, 18, 3, stripe);
+        DrawRoundedRect(texture, 165, 164, 7, 18, 3, stripe);
+
+        // Body spots.
+        DrawEllipse(texture, 75, 129, 6, 9, stripe);
+        DrawEllipse(texture, 82, 108, 5, 7, stripe);
+        DrawEllipse(texture, 181, 129, 6, 9, stripe);
+        DrawEllipse(texture, 174, 108, 5, 7, stripe);
+
+        texture.Apply();
+        return texture;
+    }
+
+    private static Texture2D CreateOtterTexture()
+    {
+        Texture2D texture = new Texture2D(PandaTextureSize, PandaTextureSize, TextureFormat.RGBA32, false);
+        Color[] pixels = new Color[PandaTextureSize * PandaTextureSize];
+        for (int index = 0; index < pixels.Length; index++)
+        {
+            pixels[index] = Color.clear;
+        }
+
+        texture.SetPixels(pixels);
+
+        Color brown = new Color(0.55f, 0.36f, 0.22f, 1f);
+        Color darkBrown = new Color(0.34f, 0.21f, 0.12f, 1f);
+        Color cream = new Color(0.9f, 0.82f, 0.68f, 1f);
+        Color nose = new Color(0.16f, 0.1f, 0.08f, 1f);
+
+        DrawEllipse(texture, 128, 98, 54, 76, brown);
+        DrawEllipse(texture, 128, 110, 46, 62, cream);
+        DrawEllipse(texture, 128, 170, 64, 66, brown);
+        DrawEllipse(texture, 128, 178, 54, 54, cream);
+        DrawEllipse(texture, 86, 174, 26, 36, brown);
+        DrawEllipse(texture, 170, 174, 26, 36, brown);
+        DrawEllipse(texture, 92, 92, 22, 42, darkBrown);
+        DrawEllipse(texture, 164, 92, 22, 42, darkBrown);
+
+        DrawEllipse(texture, 84, 48, 26, 22, brown);
+        DrawEllipse(texture, 172, 48, 26, 22, brown);
+        DrawEllipse(texture, 84, 48, 13, 11, cream);
+        DrawEllipse(texture, 172, 48, 13, 11, cream);
+
+        DrawEllipse(texture, 96, 166, 9, 13, Color.white);
+        DrawEllipse(texture, 160, 166, 9, 13, Color.white);
+        DrawEllipse(texture, 96, 166, 4, 5, nose);
+        DrawEllipse(texture, 160, 166, 4, 5, nose);
+        DrawEllipse(texture, 128, 146, 12, 8, nose);
+        DrawEllipse(texture, 108, 146, 16, 18, cream);
+        DrawEllipse(texture, 148, 146, 16, 18, cream);
+        DrawRoundedRect(texture, 70, 30, 116, 16, 8, darkBrown);
+        DrawEllipse(texture, 196, 110, 18, 48, brown);
 
         texture.Apply();
         return texture;
@@ -1796,194 +2372,6 @@ public class SanctuaryUI : MonoBehaviour
         DrawEllipse(texture, 64, 24, 58, 17, Color.white);
         texture.Apply();
         return texture;
-    }
-
-    private static Texture2D CreateSunglassesTexture()
-    {
-        Texture2D texture = CreateTransparentTexture(AccessoryTextureSize, AccessoryTextureSize);
-        Color lens = new Color(0.22f, 0.12f, 0.05f, 0.9f);
-        Color shine = new Color(1f, 0.78f, 0.42f, 0.45f);
-        Color frame = new Color(0.42f, 0.24f, 0.1f, 1f);
-        Color tortoise = new Color(0.72f, 0.45f, 0.18f, 0.95f);
-
-        DrawEllipse(texture, 77, 126, 43, 36, frame);
-        DrawEllipse(texture, 179, 126, 43, 36, frame);
-        DrawEllipse(texture, 68, 134, 14, 10, tortoise);
-        DrawEllipse(texture, 188, 118, 14, 10, tortoise);
-        DrawEllipse(texture, 77, 126, 34, 28, lens);
-        DrawEllipse(texture, 179, 126, 34, 28, lens);
-        DrawRoundedRect(texture, 112, 121, 32, 10, 5, frame);
-        DrawEllipse(texture, 64, 137, 11, 6, shine);
-        DrawEllipse(texture, 166, 137, 11, 6, shine);
-
-        texture.Apply();
-        return texture;
-    }
-
-    private static Texture2D CreateHatTexture()
-    {
-        Texture2D texture = CreateTransparentTexture(AccessoryTextureSize, AccessoryTextureSize);
-        Color brim = new Color(0.12f, 0.42f, 0.32f, 1f);
-        Color crown = new Color(0.2f, 0.62f, 0.47f, 1f);
-        Color band = new Color(0.95f, 0.78f, 0.25f, 1f);
-        Color highlight = new Color(1f, 1f, 1f, 0.25f);
-
-        DrawEllipse(texture, 128, 96, 78, 18, brim);
-        DrawRoundedRect(texture, 75, 96, 106, 62, 18, crown);
-        DrawRoundedRect(texture, 75, 101, 106, 16, 7, band);
-        DrawEllipse(texture, 112, 140, 22, 8, highlight);
-
-        texture.Apply();
-        return texture;
-    }
-
-    private static Texture2D CreateHeadwearTexture(string accessoryId)
-    {
-        Texture2D texture = CreateTransparentTexture(AccessoryTextureSize, AccessoryTextureSize);
-
-        if (accessoryId == "crown")
-        {
-            Color gold = new Color(0.96f, 0.72f, 0.16f, 1f);
-            Color shadow = new Color(0.62f, 0.42f, 0.06f, 1f);
-            DrawRoundedRect(texture, 72, 86, 112, 38, 12, shadow);
-            DrawRoundedRect(texture, 78, 92, 100, 30, 10, gold);
-            DrawEllipse(texture, 88, 132, 18, 32, gold);
-            DrawEllipse(texture, 128, 142, 18, 42, gold);
-            DrawEllipse(texture, 168, 132, 18, 32, gold);
-            texture.Apply();
-            return texture;
-        }
-
-        if (accessoryId == "headband")
-        {
-            DrawRoundedRect(texture, 58, 101, 140, 26, 12, new Color(0.57f, 0.48f, 0.93f, 1f));
-            DrawRoundedRect(texture, 78, 106, 100, 8, 4, new Color(0.35f, 0.62f, 0.34f, 1f));
-            texture.Apply();
-            return texture;
-        }
-
-        Color beanie = new Color(0.57f, 0.48f, 0.93f, 1f);
-        DrawRoundedRect(texture, 74, 90, 108, 58, 22, beanie);
-        DrawEllipse(texture, 128, 145, 52, 15, beanie);
-        DrawEllipse(texture, 128, 156, 14, 14, new Color(0.86f, 0.95f, 1f, 1f));
-        texture.Apply();
-        return texture;
-    }
-
-    private static Texture2D CreateEyewearTexture(string accessoryId)
-    {
-        if (accessoryId == "aviators")
-        {
-            Texture2D texture = CreateTransparentTexture(AccessoryTextureSize, AccessoryTextureSize);
-            Color frame = new Color(0.18f, 0.28f, 0.36f, 1f);
-            Color lens = new Color(0.62f, 0.84f, 0.96f, 0.72f);
-            DrawEllipse(texture, 78, 124, 42, 34, frame);
-            DrawEllipse(texture, 178, 124, 42, 34, frame);
-            DrawEllipse(texture, 78, 124, 33, 27, lens);
-            DrawEllipse(texture, 178, 124, 33, 27, lens);
-            DrawRoundedRect(texture, 112, 120, 32, 8, 4, frame);
-            texture.Apply();
-            return texture;
-        }
-
-        Texture2D monocle = CreateTransparentTexture(AccessoryTextureSize, AccessoryTextureSize);
-        Color gold = new Color(0.96f, 0.72f, 0.16f, 1f);
-        Color glass = new Color(0.62f, 0.84f, 0.96f, 0.4f);
-        DrawEllipse(monocle, 160, 126, 36, 36, gold);
-        DrawEllipse(monocle, 160, 126, 27, 27, glass);
-        DrawRoundedRect(monocle, 194, 118, 24, 7, 4, gold);
-        DrawEllipse(monocle, 206, 87, 5, 28, gold);
-        monocle.Apply();
-        return monocle;
-    }
-
-    private static Texture2D CreateShirtTexture()
-    {
-        Texture2D texture = CreateTransparentTexture(AccessoryTextureSize, AccessoryTextureSize);
-        Color shirt = new Color(0.57f, 0.48f, 0.93f, 0.98f);
-        Color shadow = new Color(0.34f, 0.28f, 0.68f, 0.72f);
-        Color trim = new Color(0.86f, 0.95f, 1f, 0.98f);
-        Color badge = new Color(0.95f, 0.84f, 0.28f, 1f);
-
-        DrawRoundedRect(texture, 24, 10, 208, 154, 40, shadow);
-        DrawRoundedRect(texture, 34, 24, 188, 138, 38, shirt);
-        ClearEllipse(texture, 128, 172, 50, 36);
-        ClearEllipse(texture, 128, 152, 34, 22);
-        ClearEllipse(texture, 20, 146, 24, 46);
-        ClearEllipse(texture, 236, 146, 24, 46);
-        DrawRoundedRect(texture, 70, 26, 116, 16, 8, trim);
-        DrawEllipse(texture, 128, 86, 15, 15, badge);
-
-        texture.Apply();
-        return texture;
-    }
-
-    private static Texture2D CreateShirtTexture(string accessoryId)
-    {
-        Texture2D texture = CreateTransparentTexture(AccessoryTextureSize, AccessoryTextureSize);
-        Color shirt = GetShirtColor(accessoryId);
-        Color shadow = Color.Lerp(shirt, Color.black, 0.35f);
-        Color trim = GetShirtTrimColor(accessoryId);
-        Color badge = new Color(0.95f, 0.84f, 0.28f, 1f);
-
-        DrawRoundedRect(texture, 24, 10, 208, 154, 40, shadow);
-        DrawRoundedRect(texture, 34, 24, 188, 138, 38, shirt);
-        ClearEllipse(texture, 128, 172, 50, 36);
-        ClearEllipse(texture, 128, 152, 34, 22);
-        ClearEllipse(texture, 20, 146, 24, 46);
-        ClearEllipse(texture, 236, 146, 24, 46);
-        DrawRoundedRect(texture, 70, 26, 116, 16, 8, trim);
-        DrawEllipse(texture, 128, 86, 15, 15, badge);
-
-        if (accessoryId == "shirt_lakers")
-        {
-            DrawRoundedRect(texture, 84, 58, 88, 8, 4, new Color(0.96f, 0.72f, 0.16f, 1f));
-        }
-        else if (accessoryId == "shirt_bulls")
-        {
-            DrawRoundedRect(texture, 84, 58, 88, 8, 4, Color.black);
-        }
-        else if (accessoryId == "shirt_celtics")
-        {
-            DrawEllipse(texture, 128, 116, 22, 22, Color.white);
-        }
-        else if (accessoryId == "shirt_knicks")
-        {
-            DrawRoundedRect(texture, 84, 58, 88, 8, 4, new Color(0.95f, 0.36f, 0.08f, 1f));
-        }
-        else if (accessoryId == "shirt_nirvana")
-        {
-            DrawEllipse(texture, 128, 114, 24, 24, new Color(0.95f, 0.84f, 0.18f, 1f));
-        }
-        else if (accessoryId == "shirt_metallica")
-        {
-            DrawRoundedRect(texture, 88, 88, 80, 12, 6, new Color(0.75f, 0.78f, 0.82f, 1f));
-        }
-
-        texture.Apply();
-        return texture;
-    }
-
-    private static Color GetShirtColor(string accessoryId)
-    {
-        if (accessoryId == "shirt_lakers") return new Color(0.36f, 0.19f, 0.63f, 0.98f);
-        if (accessoryId == "shirt_bulls") return new Color(0.72f, 0.05f, 0.08f, 0.98f);
-        if (accessoryId == "shirt_celtics") return new Color(0.02f, 0.48f, 0.23f, 0.98f);
-        if (accessoryId == "shirt_knicks") return new Color(0.08f, 0.31f, 0.67f, 0.98f);
-        if (accessoryId == "shirt_nirvana") return new Color(0.08f, 0.08f, 0.08f, 0.98f);
-        if (accessoryId == "shirt_metallica") return new Color(0.14f, 0.14f, 0.16f, 0.98f);
-        return new Color(0.57f, 0.48f, 0.93f, 0.98f);
-    }
-
-    private static Color GetShirtTrimColor(string accessoryId)
-    {
-        if (accessoryId == "shirt_lakers") return new Color(0.96f, 0.72f, 0.16f, 1f);
-        if (accessoryId == "shirt_bulls") return Color.black;
-        if (accessoryId == "shirt_celtics") return Color.white;
-        if (accessoryId == "shirt_knicks") return new Color(0.95f, 0.36f, 0.08f, 1f);
-        if (accessoryId == "shirt_nirvana") return new Color(0.95f, 0.84f, 0.18f, 1f);
-        if (accessoryId == "shirt_metallica") return new Color(0.75f, 0.78f, 0.82f, 1f);
-        return new Color(0.86f, 0.95f, 1f, 0.98f);
     }
 
     private static Sprite GetHabitatBackgroundSprite(string habitatId)
@@ -2054,7 +2442,6 @@ public class SanctuaryUI : MonoBehaviour
         DrawZooTree(texture, 142, 780, 0.72f);
 
         DrawEllipse(texture, 540, 705, 410, 155, meadow);
-        DrawHammock(texture, 540, 790);
         DrawToyBall(texture, 760, 650, 52);
 
         DrawHabitatRock(texture, 218, 380, 1.05f);
@@ -2109,10 +2496,10 @@ public class SanctuaryUI : MonoBehaviour
         DrawZooTree(texture, 760, 820, 0.72f);
         DrawEllipse(texture, 540, 705, 410, 155, meadow);
         DrawEllipse(texture, 540, 472, 330, 92, pond);
-        DrawEllipse(texture, 540, 498, 292, 58, new Color(0.36f, 0.6f, 0.78f, 0.65f));
-        DrawEllipse(texture, 520, 506, 110, 18, new Color(0.98f, 0.94f, 0.72f, 0.18f));
-        DrawEllipse(texture, 395, 530, 78, 20, new Color(0.16f, 0.38f, 0.27f, 1f));
-        DrawEllipse(texture, 688, 525, 94, 24, new Color(0.16f, 0.38f, 0.27f, 1f));
+        DrawRoundedRect(texture, 264, 486, 552, 18, 9, new Color(0.36f, 0.6f, 0.78f, 0.38f));
+        DrawRoundedRect(texture, 376, 518, 328, 12, 6, new Color(0.98f, 0.94f, 0.72f, 0.18f));
+        DrawRoundedRect(texture, 424, 452, 244, 10, 5, new Color(0.62f, 0.78f, 0.92f, 0.2f));
+        DrawMoonlitBed(texture, 330, 620);
         DrawHabitatRock(texture, 218, 380, 1.05f);
         DrawHabitatRock(texture, 854, 430, 0.82f);
 
@@ -2178,6 +2565,24 @@ public class SanctuaryUI : MonoBehaviour
         DrawEllipse(texture, centerX - Mathf.RoundToInt(8f * scale), centerY + Mathf.RoundToInt(22f * scale), Mathf.RoundToInt(58f * scale), Mathf.RoundToInt(44f * scale), cloud);
         DrawEllipse(texture, centerX + Mathf.RoundToInt(54f * scale), centerY + Mathf.RoundToInt(4f * scale), Mathf.RoundToInt(52f * scale), Mathf.RoundToInt(36f * scale), cloud);
         DrawRoundedRect(texture, centerX - Mathf.RoundToInt(88f * scale), centerY - Mathf.RoundToInt(18f * scale), Mathf.RoundToInt(176f * scale), Mathf.RoundToInt(36f * scale), Mathf.RoundToInt(18f * scale), cloud);
+    }
+
+    private static void DrawMoonlitBed(Texture2D texture, int centerX, int centerY)
+    {
+        Color shadow = new Color(0.04f, 0.08f, 0.12f, 0.28f);
+        Color frame = new Color(0.45f, 0.31f, 0.2f, 1f);
+        Color mattress = new Color(0.74f, 0.69f, 0.9f, 1f);
+        Color blanket = new Color(0.5f, 0.42f, 0.78f, 1f);
+        Color pillow = new Color(0.9f, 0.88f, 1f, 1f);
+
+        DrawEllipse(texture, centerX + 6, centerY - 48, 162, 28, shadow);
+        DrawRoundedRect(texture, centerX - 150, centerY - 38, 300, 42, 16, frame);
+        DrawRoundedRect(texture, centerX - 132, centerY - 14, 264, 58, 20, mattress);
+        DrawRoundedRect(texture, centerX - 118, centerY + 4, 172, 50, 16, blanket);
+        DrawRoundedRect(texture, centerX + 52, centerY + 10, 70, 34, 15, pillow);
+        DrawRoundedRect(texture, centerX - 148, centerY - 58, 24, 56, 8, frame);
+        DrawRoundedRect(texture, centerX + 124, centerY - 58, 24, 56, 8, frame);
+        DrawRoundedRect(texture, centerX - 92, centerY + 16, 108, 8, 4, new Color(0.82f, 0.76f, 1f, 0.8f));
     }
 
     private static void DrawToyBall(Texture2D texture, int centerX, int centerY, int radius)

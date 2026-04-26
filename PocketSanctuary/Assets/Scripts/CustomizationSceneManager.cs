@@ -11,22 +11,32 @@ public class CustomizationSceneManager : MonoBehaviour
     private const string ShopSceneName = "ShopScene";
     private const string SettingsSceneName = "SettingsScene";
     private const string PocketPalSceneName = "PocketPalScene";
-    private const string SunglassesAccessoryId = "sunglasses";
-    private const string HatAccessoryId = "hat";
-    private const string TShirtAccessoryId = "tshirt";
-    private const string MonocleAccessoryId = "monocle";
-    private const string AviatorsAccessoryId = "aviators";
-    private const string BeanieAccessoryId = "beanie";
-    private const string HeadbandAccessoryId = "headband";
-    private const string CrownAccessoryId = "crown";
-    private const string LakersShirtAccessoryId = "shirt_lakers";
-    private const string BullsShirtAccessoryId = "shirt_bulls";
-    private const string CelticsShirtAccessoryId = "shirt_celtics";
-    private const string KnicksShirtAccessoryId = "shirt_knicks";
-    private const string NirvanaShirtAccessoryId = "shirt_nirvana";
-    private const string MetallicaShirtAccessoryId = "shirt_metallica";
-    private const int HatPrice = 120;
-    private const int TShirtPrice = 160;
+    private const string EyewearRoundGlassesAccessoryId = "eyewear_round_glasses";
+    private const string EyewearBlackSunglassesAccessoryId = "eyewear_black_sunglasses";
+    private const string EyewearPixelShadesAccessoryId = "eyewear_pixel_shades";
+    private const string EyewearHeartGlassesAccessoryId = "eyewear_heart_glasses";
+    private const string EyewearBlueRoundGlassesAccessoryId = "eyewear_blue_round_glasses";
+    private const string EyewearStarGlassesAccessoryId = "eyewear_star_glasses";
+    private const string HeadwearBlueBeanieAccessoryId = "headwear_blue_beanie";
+    private const string HeadwearChefHatAccessoryId = "headwear_chef_hat";
+    private const string HeadwearDinoHoodAccessoryId = "headwear_dino_hood";
+    private const string HeadwearCrownAccessoryId = "headwear_crown";
+    private const string HeadwearStrawHatAccessoryId = "headwear_straw_hat";
+    private const string HeadwearRedCapAccessoryId = "headwear_red_cap";
+    private const string HeadwearAviatorHatAccessoryId = "headwear_aviator_hat";
+    private const string ShirtGreenBambooAccessoryId = "shirt_green_bamboo";
+    private const string ShirtBluePawAccessoryId = "shirt_blue_paw";
+    private const string ShirtYellowPandaAccessoryId = "shirt_yellow_panda";
+    private const string ShirtBlueHawaiianAccessoryId = "shirt_blue_hawaiian";
+    private const string ShirtBlackHeartAccessoryId = "shirt_black_heart";
+    private const string ShirtRedHoodieAccessoryId = "shirt_red_hoodie";
+    private const string PropBluePawFlagAccessoryId = "prop_blue_paw_flag";
+    private const string PropRainbowFlagAccessoryId = "prop_rainbow_flag";
+    private const string PropRedHeartFlagAccessoryId = "prop_red_heart_flag";
+    private const string PropCheckeredFlagAccessoryId = "prop_checkered_flag";
+    private const string PropGreenLeafFlagAccessoryId = "prop_green_leaf_flag";
+    private const string PropPirateFlagAccessoryId = "prop_pirate_flag";
+    private const string PropPandaFlagAccessoryId = "prop_panda_flag";
     private const string FeedTaskId = "feed_panda";
     private const string CheckInTaskId = "check_in";
     private const string AccessorizeTaskId = "accessorize_panda";
@@ -41,6 +51,20 @@ public class CustomizationSceneManager : MonoBehaviour
     private int pocketPalFeedCount;
     private bool compactDrawerMode;
     private static readonly Dictionary<string, Sprite> previewSpriteCache = new Dictionary<string, Sprite>();
+
+    private class PocketPalDefinition
+    {
+        public string id;
+        public string name;
+        public string description;
+
+        public PocketPalDefinition(string id, string name, string description)
+        {
+            this.id = id;
+            this.name = name;
+            this.description = description;
+        }
+    }
 
     private class HabitatDefinition
     {
@@ -76,20 +100,62 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private static readonly AccessoryDefinition[] AccessoryCatalog = new AccessoryDefinition[]
     {
-        new AccessoryDefinition(SunglassesAccessoryId, "Eyewear", "Round shades", "Gucci-brown round sunglasses.", 0),
-        new AccessoryDefinition(MonocleAccessoryId, "Eyewear", "Gold monocle", "A fancy one-eye glass with a tiny chain.", 90),
-        new AccessoryDefinition(AviatorsAccessoryId, "Eyewear", "Sky aviators", "Large blue-tinted aviators.", 130),
-        new AccessoryDefinition(HatAccessoryId, "Headwear", "Green cap", "A soft cap for cozy walks.", HatPrice),
-        new AccessoryDefinition(BeanieAccessoryId, "Headwear", "Lavender beanie", "A plush beanie for chilly sanctuary mornings.", 140),
-        new AccessoryDefinition(HeadbandAccessoryId, "Headwear", "Sport headband", "A green-and-lavender workout band.", 100),
-        new AccessoryDefinition(CrownAccessoryId, "Headwear", "Tiny crown", "A shiny royal crown for your pocket pal.", 220),
-        new AccessoryDefinition(TShirtAccessoryId, "Shirts", "Lavender tank", "A sleeveless lavender tank.", TShirtPrice),
-        new AccessoryDefinition(LakersShirtAccessoryId, "Shirts", "Lakers tank", "Purple and gold Los Angeles Lakers-inspired tank.", 190),
-        new AccessoryDefinition(BullsShirtAccessoryId, "Shirts", "Bulls tank", "Red and black Chicago Bulls-inspired tank.", 190),
-        new AccessoryDefinition(CelticsShirtAccessoryId, "Shirts", "Celtics tank", "Green and white Boston Celtics-inspired tank.", 190),
-        new AccessoryDefinition(KnicksShirtAccessoryId, "Shirts", "Knicks tank", "Blue and orange New York Knicks-inspired tank.", 190),
-        new AccessoryDefinition(NirvanaShirtAccessoryId, "Shirts", "Nirvana tank", "Black band-style tank with a sunny badge.", 210),
-        new AccessoryDefinition(MetallicaShirtAccessoryId, "Shirts", "Metallica tank", "Charcoal band-style tank with silver trim.", 210)
+        new AccessoryDefinition(EyewearRoundGlassesAccessoryId, "Eyewear", "Round glasses", "Classic round frames from your sprite pack.", 70),
+        new AccessoryDefinition(EyewearBlackSunglassesAccessoryId, "Eyewear", "Black sunglasses", "Cool black shades.", 95),
+        new AccessoryDefinition(EyewearPixelShadesAccessoryId, "Eyewear", "Pixel shades", "Retro blocky shades.", 125),
+        new AccessoryDefinition(EyewearHeartGlassesAccessoryId, "Eyewear", "Heart glasses", "Bright heart-shaped frames.", 135),
+        new AccessoryDefinition(EyewearBlueRoundGlassesAccessoryId, "Eyewear", "Blue goggles", "Blue circular goggles.", 120),
+        new AccessoryDefinition(EyewearStarGlassesAccessoryId, "Eyewear", "Star glasses", "Bold star-shaped glasses.", 145),
+        new AccessoryDefinition(HeadwearBlueBeanieAccessoryId, "Headwear", "Blue beanie", "A cozy blue knit cap.", 110),
+        new AccessoryDefinition(HeadwearChefHatAccessoryId, "Headwear", "Chef hat", "Tiny chef vibes.", 140),
+        new AccessoryDefinition(HeadwearDinoHoodAccessoryId, "Headwear", "Dino hood", "A playful dinosaur hood.", 170),
+        new AccessoryDefinition(HeadwearCrownAccessoryId, "Headwear", "Crown", "Royal crown from your sheet.", 220),
+        new AccessoryDefinition(HeadwearStrawHatAccessoryId, "Headwear", "Straw hat", "Sun hat with a leaf accent.", 130),
+        new AccessoryDefinition(HeadwearRedCapAccessoryId, "Headwear", "Red cap", "A tilted red cap.", 100),
+        new AccessoryDefinition(HeadwearAviatorHatAccessoryId, "Headwear", "Aviator cap", "Pilot cap with goggles.", 180),
+        new AccessoryDefinition(ShirtGreenBambooAccessoryId, "Shirts", "Green fish shirt", "Green shirt with fish icon.", 150),
+        new AccessoryDefinition(ShirtBluePawAccessoryId, "Shirts", "Blue paw shirt", "Blue shirt with paw icon.", 150),
+        new AccessoryDefinition(ShirtYellowPandaAccessoryId, "Shirts", "Yellow mascot hoodie", "Yellow hoodie with mascot patch.", 180),
+        new AccessoryDefinition(ShirtBlueHawaiianAccessoryId, "Shirts", "Blue floral shirt", "Blue floral island shirt.", 180),
+        new AccessoryDefinition(ShirtBlackHeartAccessoryId, "Shirts", "Black heart hoodie", "Black hoodie with red heart.", 180),
+        new AccessoryDefinition(ShirtRedHoodieAccessoryId, "Shirts", "Red hoodie", "Classic red hoodie.", 170),
+        new AccessoryDefinition(PropBluePawFlagAccessoryId, "Handheld", "Blue paw flag", "Carry a blue paw flag.", 140),
+        new AccessoryDefinition(PropRainbowFlagAccessoryId, "Handheld", "Rainbow flag", "Carry a rainbow flag.", 150),
+        new AccessoryDefinition(PropRedHeartFlagAccessoryId, "Handheld", "Heart flag", "Carry a red heart flag.", 140),
+        new AccessoryDefinition(PropCheckeredFlagAccessoryId, "Handheld", "Checkered flag", "Carry a checkered racing flag.", 140),
+        new AccessoryDefinition(PropGreenLeafFlagAccessoryId, "Handheld", "Green fish flag", "Carry a green fish flag.", 140),
+        new AccessoryDefinition(PropPirateFlagAccessoryId, "Handheld", "Pirate flag", "Carry a pirate flag.", 155),
+        new AccessoryDefinition(PropPandaFlagAccessoryId, "Handheld", "Mascot flag", "Carry a mascot flag for your current pal.", 145)
+    };
+
+    private static readonly Dictionary<string, string> AccessorySpriteResourceNames = new Dictionary<string, string>
+    {
+        { EyewearRoundGlassesAccessoryId, "eyewear_round_glasses" },
+        { EyewearBlackSunglassesAccessoryId, "eyewear_black_sunglasses" },
+        { EyewearPixelShadesAccessoryId, "eyewear_pixel_shades" },
+        { EyewearHeartGlassesAccessoryId, "eyewear_heart_glasses" },
+        { EyewearBlueRoundGlassesAccessoryId, "eyewear_blue_round_glasses" },
+        { EyewearStarGlassesAccessoryId, "eyewear_star_glasses" },
+        { HeadwearBlueBeanieAccessoryId, "headwear_blue_beanie" },
+        { HeadwearChefHatAccessoryId, "headwear_chef_hat" },
+        { HeadwearDinoHoodAccessoryId, "headwear_dino_hood" },
+        { HeadwearCrownAccessoryId, "headwear_crown" },
+        { HeadwearStrawHatAccessoryId, "headwear_straw_hat" },
+        { HeadwearRedCapAccessoryId, "headwear_red_cap" },
+        { HeadwearAviatorHatAccessoryId, "headwear_aviator_hat" },
+        { ShirtGreenBambooAccessoryId, "shirt_green_bamboo" },
+        { ShirtBluePawAccessoryId, "shirt_blue_paw" },
+        { ShirtYellowPandaAccessoryId, "shirt_yellow_panda" },
+        { ShirtBlueHawaiianAccessoryId, "shirt_blue_hawaiian" },
+        { ShirtBlackHeartAccessoryId, "shirt_black_heart" },
+        { ShirtRedHoodieAccessoryId, "shirt_red_hoodie" },
+        { PropBluePawFlagAccessoryId, "prop_blue_paw_flag" },
+        { PropRainbowFlagAccessoryId, "prop_rainbow_flag" },
+        { PropRedHeartFlagAccessoryId, "prop_red_heart_flag" },
+        { PropCheckeredFlagAccessoryId, "prop_checkered_flag" },
+        { PropGreenLeafFlagAccessoryId, "prop_green_leaf_flag" },
+        { PropPirateFlagAccessoryId, "prop_pirate_flag" },
+        { PropPandaFlagAccessoryId, "prop_panda_flag" }
     };
 
     private static readonly HabitatDefinition[] HabitatCatalog = new HabitatDefinition[]
@@ -97,6 +163,13 @@ public class CustomizationSceneManager : MonoBehaviour
         new HabitatDefinition("sunny_garden", "Sunny Playpen", "Zoo habitat with trees, a swing, and a small playpen."),
         new HabitatDefinition("moonlit_pond", "Moonlit Pond", "Night habitat with a darker sky, moonlight, and a reflective pond."),
         new HabitatDefinition("bamboo_grove", "Bamboo Grove", "Reward habitat with extra bamboo shade.")
+    };
+
+    private static readonly PocketPalDefinition[] PocketPalCatalog = new PocketPalDefinition[]
+    {
+        new PocketPalDefinition("panda", "Panda", "A cozy bamboo-loving starter pal."),
+        new PocketPalDefinition("white_tiger", "White Tiger", "A graceful striped cat with a calm stare."),
+        new PocketPalDefinition("otter", "Otter", "A playful river buddy that loves toys and naps.")
     };
 
     public void SetCompactDrawerMode(bool isCompact)
@@ -240,23 +313,41 @@ public class CustomizationSceneManager : MonoBehaviour
 
         CreateHabitatSection(mainContent);
 
-        CreateCategorySection(mainContent, "PocketPals", "Pick the animal living in your sanctuary.", 300f, new string[]
-        {
-            "Panda\nSelected starter pal"
-        });
+        CreatePocketPalSection(mainContent);
 
-        GameObject accessoriesSection = CreatePanel("AccessoriesSection", mainContent, new Color(1f, 1f, 1f, 0.42f), 2600f);
+        string[] accessoryCategories = new string[] { "Eyewear", "Headwear", "Shirts", "Handheld" };
+        float accessoriesSectionHeight = GetAccessoriesSectionHeight(accessoryCategories);
+
+        GameObject accessoriesSection = CreatePanel("AccessoriesSection", mainContent, new Color(1f, 1f, 1f, 0.42f), accessoriesSectionHeight);
         ConfigurePanelLayout(accessoriesSection, 28, 28, 34, 34, 24);
 
         TMP_Text accessoriesTitle = CreateText("AccessoriesTitle", accessoriesSection.transform, "Accessories", 34, FontStyles.Bold, TextAlignmentOptions.Center);
         accessoriesTitle.color = new Color(0.08f, 0.18f, 0.22f);
 
-        TMP_Text accessoriesSubtitle = CreateText("AccessoriesSubtitle", accessoriesSection.transform, "Dress up your panda by category.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+        TMP_Text accessoriesSubtitle = CreateText("AccessoriesSubtitle", accessoriesSection.transform, "Dress up your pal by category.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
         accessoriesSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
 
-        CreateAccessoryCategory(accessoriesSection.transform, "Eyewear");
-        CreateAccessoryCategory(accessoriesSection.transform, "Headwear");
-        CreateAccessoryCategory(accessoriesSection.transform, "Shirts");
+        for (int index = 0; index < accessoryCategories.Length; index++)
+        {
+            CreateAccessoryCategory(accessoriesSection.transform, accessoryCategories[index]);
+        }
+    }
+
+    private float GetAccessoriesSectionHeight(string[] accessoryCategories)
+    {
+        // Includes section padding/title/subtitle plus each category panel and layout spacing.
+        float totalHeight = 300f;
+        for (int index = 0; index < accessoryCategories.Length; index++)
+        {
+            AccessoryDefinition[] categoryItems = GetAccessoriesForCategory(accessoryCategories[index]);
+            float rowHeight = accessoryCategories[index] == "Shirts" || accessoryCategories[index] == "Handheld" ? 236f : 192f;
+            float categoryHeight = 120f + categoryItems.Length * rowHeight;
+            totalHeight += categoryHeight;
+        }
+
+        // Category-to-category spacing and a small bottom cushion.
+        totalHeight += (accessoryCategories.Length * 24f) + 80f;
+        return totalHeight;
     }
 
     private void CreateCategorySection(Transform parent, string title, string subtitle, float preferredHeight, string[] options)
@@ -295,6 +386,48 @@ public class CustomizationSceneManager : MonoBehaviour
         }
     }
 
+    private void CreatePocketPalSection(Transform parent)
+    {
+        float dynamicHeight = Mathf.Max(520f, 190f + PocketPalCatalog.Length * 142f);
+        GameObject section = CreatePanel("PocketPalsSection", parent, new Color(1f, 1f, 1f, 0.42f), dynamicHeight);
+        ConfigurePanelLayout(section, 28, 28, 34, 34, 20);
+
+        TMP_Text titleText = CreateText("PocketPalsTitle", section.transform, "PocketPals", 34, FontStyles.Bold, TextAlignmentOptions.Center);
+        titleText.color = new Color(0.08f, 0.18f, 0.22f);
+
+        TMP_Text subtitleText = CreateText("PocketPalsSubtitle", section.transform, "Pick the animal living in your sanctuary.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+        subtitleText.color = new Color(0.16f, 0.28f, 0.32f);
+
+        for (int index = 0; index < PocketPalCatalog.Length; index++)
+        {
+            CreatePocketPalCard(PocketPalCatalog[index], section.transform);
+        }
+    }
+
+    private void CreatePocketPalCard(PocketPalDefinition pocketPal, Transform parent)
+    {
+        bool isOwned = IsPocketPalOwned(pocketPal.id);
+        bool isSelected = SaveManager.Data.selectedPocketPalId == pocketPal.id;
+        Color cardColor = isSelected ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : isOwned ? new Color(0.94f, 0.97f, 0.98f, 0.95f) : new Color(0.88f, 0.9f, 0.92f, 0.78f);
+        GameObject card = CreatePanel(pocketPal.id + "PocketPalCard", parent, cardColor, 126f);
+
+        if (isOwned)
+        {
+            Button button = card.AddComponent<Button>();
+            Image image = card.GetComponent<Image>();
+            image.raycastTarget = true;
+            button.interactable = true;
+            button.targetGraphic = image;
+            button.onClick.AddListener(delegate { SelectPocketPal(pocketPal.id); });
+        }
+
+        ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
+
+        string status = isSelected ? "Selected" : isOwned ? "Tap to use" : "Locked";
+        TMP_Text label = CreateText(pocketPal.id + "PocketPalLabel", card.transform, pocketPal.name + "\n" + pocketPal.description + "\n" + status, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        label.color = isOwned ? new Color(0.08f, 0.18f, 0.22f) : new Color(0.22f, 0.28f, 0.3f);
+    }
+
     private void CreateHabitatCard(HabitatDefinition habitat, Transform parent)
     {
         bool isOwned = IsHabitatOwned(habitat.id);
@@ -322,7 +455,8 @@ public class CustomizationSceneManager : MonoBehaviour
     private void CreateAccessoryCategory(Transform parent, string categoryTitle)
     {
         AccessoryDefinition[] categoryItems = GetAccessoriesForCategory(categoryTitle);
-        GameObject categoryPanel = CreatePanel(categoryTitle.Replace("-", "").Replace(" ", "") + "Category", parent, new Color(0.93f, 0.97f, 0.96f, 0.72f), 120f + categoryItems.Length * 178f);
+        float rowHeight = categoryTitle == "Shirts" || categoryTitle == "Handheld" ? 236f : 192f;
+        GameObject categoryPanel = CreatePanel(categoryTitle.Replace("-", "").Replace(" ", "") + "Category", parent, new Color(0.93f, 0.97f, 0.96f, 0.72f), 120f + categoryItems.Length * rowHeight);
         ConfigurePanelLayout(categoryPanel, 22, 22, 20, 20, 14);
 
         TMP_Text categoryLabel = CreateText(categoryTitle.Replace(" ", "") + "CategoryLabel", categoryPanel.transform, categoryTitle, 28, FontStyles.Bold, TextAlignmentOptions.Left);
@@ -341,7 +475,9 @@ public class CustomizationSceneManager : MonoBehaviour
     {
         bool isEquipped = IsAccessoryEquipped(accessoryId);
         Color cardColor = isEquipped ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
-        GameObject card = CreatePanel(objectName, parent, cardColor, 142f);
+        string category = GetAccessoryCategory(accessoryId);
+        float cardHeight = category == "Shirts" || category == "Handheld" ? 212f : 168f;
+        GameObject card = CreatePanel(objectName, parent, cardColor, cardHeight);
 
         if (IsAccessoryOwned(accessoryId))
         {
@@ -380,6 +516,11 @@ public class CustomizationSceneManager : MonoBehaviour
         return SaveManager.Data.ownedHabitatIds != null && SaveManager.Data.ownedHabitatIds.Contains(habitatId);
     }
 
+    private bool IsPocketPalOwned(string pocketPalId)
+    {
+        return SaveManager.Data.ownedPocketPalIds != null && SaveManager.Data.ownedPocketPalIds.Contains(pocketPalId);
+    }
+
     private void SelectHabitat(string habitatId)
     {
         if (!IsHabitatOwned(habitatId))
@@ -388,6 +529,19 @@ public class CustomizationSceneManager : MonoBehaviour
         }
 
         SaveManager.Data.selectedHabitatId = habitatId;
+        SaveManager.Save();
+        RefreshAfterSave(SceneManager.GetActiveScene().name);
+    }
+
+    private void SelectPocketPal(string pocketPalId)
+    {
+        if (!IsPocketPalOwned(pocketPalId))
+        {
+            return;
+        }
+
+        SaveManager.Data.selectedPocketPalId = pocketPalId;
+        SaveManager.Data.selectedPocketPalName = GetPocketPalName(pocketPalId);
         SaveManager.Save();
         RefreshAfterSave(SceneManager.GetActiveScene().name);
     }
@@ -430,91 +584,88 @@ public class CustomizationSceneManager : MonoBehaviour
         previewImage.raycastTarget = false;
         previewImage.color = isUnlocked ? Color.white : new Color(1f, 1f, 1f, 0.38f);
 
+        string category = GetAccessoryCategory(accessoryId);
+        float previewHeight = compactDrawerMode ? 74f : 88f;
+        if (category == "Shirts" || category == "Handheld")
+        {
+            previewHeight = compactDrawerMode ? 108f : 132f;
+        }
+
         LayoutElement layoutElement = previewObject.GetComponent<LayoutElement>();
-        layoutElement.preferredHeight = compactDrawerMode ? 74f : 88f;
+        layoutElement.preferredHeight = previewHeight;
         layoutElement.minHeight = layoutElement.preferredHeight;
         layoutElement.flexibleWidth = 1f;
     }
 
     private Sprite GetAccessoryPreviewSprite(string accessoryId)
     {
-        if (previewSpriteCache.ContainsKey(accessoryId))
+        string pocketPalId = SaveManager.Data != null ? SaveManager.Data.selectedPocketPalId : "panda";
+        string cacheKey = pocketPalId + ":" + accessoryId;
+        if (previewSpriteCache.ContainsKey(cacheKey))
         {
-            return previewSpriteCache[accessoryId];
+            return previewSpriteCache[cacheKey];
         }
 
-        Texture2D texture = CreateAccessoryPreviewTexture(accessoryId);
-        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 96f, 96f), new Vector2(0.5f, 0.5f), 100f);
-        previewSpriteCache[accessoryId] = sprite;
+        Sprite sprite = TryCreateSpriteFromResource(GetAccessoryResourcePath(accessoryId, pocketPalId));
+        if (sprite == null && pocketPalId != "panda")
+        {
+            sprite = TryCreateSpriteFromResource(GetAccessoryResourcePath(accessoryId, "panda"));
+        }
+
+        if (sprite == null)
+        {
+            Texture2D fallback = CreateTransparentTexture(96, 96);
+            fallback.Apply();
+            sprite = Sprite.Create(fallback, new Rect(0f, 0f, 96f, 96f), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        previewSpriteCache[cacheKey] = sprite;
         return sprite;
     }
 
-    private Texture2D CreateAccessoryPreviewTexture(string accessoryId)
+    private string GetAccessoryResourcePath(string accessoryId, string pocketPalId)
     {
-        Texture2D texture = CreateTransparentTexture(96, 96);
-        Color lavender = new Color(0.57f, 0.48f, 0.93f, 1f);
-        Color grass = new Color(0.35f, 0.62f, 0.34f, 1f);
-        Color sky = new Color(0.62f, 0.84f, 0.96f, 1f);
-        Color gold = new Color(0.96f, 0.72f, 0.16f, 1f);
-        Color brown = new Color(0.42f, 0.24f, 0.1f, 1f);
-
-        if (GetAccessoryCategory(accessoryId) == "Eyewear")
+        if (!AccessorySpriteResourceNames.ContainsKey(accessoryId))
         {
-            if (accessoryId == MonocleAccessoryId)
-            {
-                DrawEllipse(texture, 48, 50, 18, 18, gold);
-                DrawEllipse(texture, 48, 50, 12, 12, sky);
-                DrawRoundedRect(texture, 64, 45, 18, 4, 2, gold);
-            }
-            else
-            {
-                Color frame = accessoryId == AviatorsAccessoryId ? new Color(0.18f, 0.28f, 0.36f, 1f) : brown;
-                Color lens = accessoryId == AviatorsAccessoryId ? sky : new Color(0.22f, 0.12f, 0.05f, 0.92f);
-                DrawEllipse(texture, 34, 50, 22, 18, frame);
-                DrawEllipse(texture, 62, 50, 22, 18, frame);
-                DrawEllipse(texture, 34, 50, 16, 13, lens);
-                DrawEllipse(texture, 62, 50, 16, 13, lens);
-                DrawRoundedRect(texture, 46, 47, 8, 4, 2, frame);
-            }
-        }
-        else if (GetAccessoryCategory(accessoryId) == "Headwear")
-        {
-            Color color = accessoryId == BeanieAccessoryId ? lavender : accessoryId == CrownAccessoryId ? gold : grass;
-            DrawRoundedRect(texture, 24, 38, 48, 24, 10, color);
-            DrawEllipse(texture, 48, 64, 34, 8, color);
-            if (accessoryId == CrownAccessoryId)
-            {
-                DrawEllipse(texture, 30, 67, 8, 12, color);
-                DrawEllipse(texture, 48, 70, 8, 16, color);
-                DrawEllipse(texture, 66, 67, 8, 12, color);
-            }
-        }
-        else
-        {
-            Color shirtColor = GetShirtColor(accessoryId);
-            DrawRoundedRect(texture, 21, 20, 54, 62, 13, shirtColor);
-            DrawEllipse(texture, 48, 54, 7, 7, gold);
+            return string.Empty;
         }
 
-        texture.Apply();
-        return texture;
+        string spriteName = AccessorySpriteResourceNames[accessoryId];
+        if (pocketPalId == "white_tiger")
+        {
+            return "Sprites/Accessories/white_tiger_" + spriteName;
+        }
+
+        if (pocketPalId == "otter")
+        {
+            return "Sprites/Accessories/otter_" + spriteName;
+        }
+
+        return "Sprites/Accessories/" + spriteName;
+    }
+
+    private Sprite TryCreateSpriteFromResource(string resourcePath)
+    {
+        if (string.IsNullOrEmpty(resourcePath))
+        {
+            return null;
+        }
+
+        Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+        if (texture == null)
+        {
+            return null;
+        }
+
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
     }
 
     private string GetAccessoryCategory(string accessoryId)
     {
         AccessoryDefinition definition = GetAccessoryDefinition(accessoryId);
         return definition != null ? definition.category : "";
-    }
-
-    private Color GetShirtColor(string accessoryId)
-    {
-        if (accessoryId == LakersShirtAccessoryId) return new Color(0.36f, 0.19f, 0.63f, 1f);
-        if (accessoryId == BullsShirtAccessoryId) return new Color(0.72f, 0.05f, 0.08f, 1f);
-        if (accessoryId == CelticsShirtAccessoryId) return new Color(0.02f, 0.48f, 0.23f, 1f);
-        if (accessoryId == KnicksShirtAccessoryId) return new Color(0.08f, 0.31f, 0.67f, 1f);
-        if (accessoryId == NirvanaShirtAccessoryId) return new Color(0.08f, 0.08f, 0.08f, 1f);
-        if (accessoryId == MetallicaShirtAccessoryId) return new Color(0.14f, 0.14f, 0.16f, 1f);
-        return new Color(0.57f, 0.48f, 0.93f, 1f);
     }
 
     private void ToggleAccessory(string accessoryId)
@@ -537,7 +688,8 @@ public class CustomizationSceneManager : MonoBehaviour
         }
         else
         {
-            RemoveEquippedAccessoriesInCategory(GetAccessoryCategory(accessoryId));
+            string category = GetAccessoryCategory(accessoryId);
+            RemoveEquippedAccessoriesInCategory(category);
             SaveManager.Data.equippedAccessoryIds.Add(accessoryId);
         }
 
@@ -595,7 +747,7 @@ public class CustomizationSceneManager : MonoBehaviour
 
         CreateTaskCard(tasksPanel.transform, FeedTaskId, "Feed your panda", "Feed your panda from the PocketPal screen.", 10, SaveManager.Data.snacksFed > 0);
         CreateTaskCard(tasksPanel.transform, CheckInTaskId, "Check in today", "Open the game and visit your sanctuary.", 5, true);
-        CreateTaskCard(tasksPanel.transform, AccessorizeTaskId, "Accessorize your panda", "Equip sunglasses, a hat, or a t-shirt.", 15, SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0);
+        CreateTaskCard(tasksPanel.transform, AccessorizeTaskId, "Accessorize your panda", "Equip any style item from customization.", 15, SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0);
         CreateTaskCard(tasksPanel.transform, VisitShopTaskId, "Visit the shop", "Browse the panda accessory shop.", 5, SaveManager.Data.hasVisitedShop);
 
         GameObject rewardsPanel = CreatePanel("RewardsPanel", mainContent, new Color(0.83f, 0.93f, 0.78f, 0.88f), 680f);
@@ -632,7 +784,7 @@ public class CustomizationSceneManager : MonoBehaviour
 
         CreateLevelRewardCard(levelPanel.transform, "pal_level_2_treat", "PocketPal Treat Bundle", "Reach PocketPal level 2 to earn bonus coins.", 2, 1, 75, "", "");
         CreateLevelRewardCard(levelPanel.transform, "habitat_level_2_bamboo", "Bamboo Habitat Kit", "Reach habitat level 2 to unlock a bamboo habitat reward.", 1, 2, 0, "bamboo_grove", "");
-        CreateLevelRewardCard(levelPanel.transform, "pal_level_3_hat", "Level 3 Hat Reward", "Reach PocketPal level 3 to unlock the green cap.", 3, 1, 0, "", HatAccessoryId);
+        CreateLevelRewardCard(levelPanel.transform, "pal_level_3_hat", "Level 3 Hat Reward", "Reach PocketPal level 3 to unlock the red cap.", 3, 1, 0, "", HeadwearRedCapAccessoryId);
     }
 
     private void CreateTaskCard(Transform parent, string taskId, string title, string description, int coinReward, bool isReady)
@@ -794,7 +946,8 @@ public class CustomizationSceneManager : MonoBehaviour
             "Sanctuary chest - 1200 coins"
         });
 
-        GameObject accessoryShop = CreatePanel("AccessoryShopSection", mainContent, new Color(1f, 1f, 1f, 0.42f), 760f);
+        float accessoryShopHeight = Mathf.Max(900f, 190f + AccessoryCatalog.Length * 166f);
+        GameObject accessoryShop = CreatePanel("AccessoryShopSection", mainContent, new Color(1f, 1f, 1f, 0.42f), accessoryShopHeight);
         ConfigurePanelLayout(accessoryShop, 28, 28, 34, 34, 24);
 
         if (!compactDrawerMode)
@@ -802,7 +955,7 @@ public class CustomizationSceneManager : MonoBehaviour
             TMP_Text shopTitle = CreateText("AccessoryShopTitle", accessoryShop.transform, "Panda Accessories", 34, FontStyles.Bold, TextAlignmentOptions.Center);
             shopTitle.color = new Color(0.08f, 0.18f, 0.22f);
 
-            TMP_Text shopSubtitle = CreateText("AccessoryShopSubtitle", accessoryShop.transform, "Buy items here, then equip them in Customization.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+            TMP_Text shopSubtitle = CreateText("AccessoryShopSubtitle", accessoryShop.transform, "Buy unlocks from your uploaded panda sprite set.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
             shopSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
         }
 
@@ -824,7 +977,9 @@ public class CustomizationSceneManager : MonoBehaviour
             cardColor = new Color(0.9f, 0.9f, 0.9f, 0.82f);
         }
 
-        GameObject card = CreatePanel(objectName, parent, cardColor, 150f);
+        string category = GetAccessoryCategory(accessoryId);
+        float cardHeight = category == "Shirts" || category == "Handheld" ? 220f : 172f;
+        GameObject card = CreatePanel(objectName, parent, cardColor, cardHeight);
 
         if (!isOwned && canAfford)
         {
@@ -923,8 +1078,9 @@ public class CustomizationSceneManager : MonoBehaviour
         stageLayout.childAlignment = TextAnchor.MiddleCenter;
 
         GameSaveData saveData = SaveManager.Data;
+        string palNameText = GetSelectedPocketPalDisplayName();
 
-        TMP_Text palName = CreateText("PocketPalName", stage.transform, saveData.selectedPocketPalName, 52, FontStyles.Bold, TextAlignmentOptions.Center);
+        TMP_Text palName = CreateText("PocketPalName", stage.transform, palNameText, 52, FontStyles.Bold, TextAlignmentOptions.Center);
         palName.color = new Color(0.08f, 0.18f, 0.22f);
 
         pocketPalFeedCount = saveData.snacksFed;
@@ -934,7 +1090,7 @@ public class CustomizationSceneManager : MonoBehaviour
         GameObject actionPanel = CreatePanel("PocketPalActions", mainContent, new Color(1f, 1f, 1f, 0.42f), 330f);
         ConfigurePanelLayout(actionPanel, 26, 26, 26, 26, 20);
 
-        TMP_Text actionLabel = CreateText("PocketPalActionLabel", actionPanel.transform, "What should " + saveData.selectedPocketPalName + " do?", 30, FontStyles.Bold, TextAlignmentOptions.Center);
+        TMP_Text actionLabel = CreateText("PocketPalActionLabel", actionPanel.transform, "What should " + palNameText + " do?", 30, FontStyles.Bold, TextAlignmentOptions.Center);
         actionLabel.color = new Color(0.08f, 0.18f, 0.22f);
 
         CreateButton("AccessorizeButton", actionPanel.transform, "Accessorize", GoToCustomization, new Color(0.69f, 0.88f, 0.66f, 1f));
@@ -947,7 +1103,7 @@ public class CustomizationSceneManager : MonoBehaviour
         statsTitle.color = new Color(0.08f, 0.18f, 0.22f);
 
         string equippedAccessory = string.IsNullOrEmpty(saveData.equippedAccessoryId) ? "None equipped" : saveData.equippedAccessoryId;
-        TMP_Text statsBody = CreateText("PocketPalStatsBody", statsPanel.transform, "Favorite food: Berry bites\nAccessory: " + equippedAccessory + "\nPocketPal level: " + saveData.pocketPalLevel + "\nHabitat level: " + saveData.habitatLevel + "\nSnacks fed: " + saveData.snacksFed + "\nNext reward: level milestones", 28, FontStyles.Normal, TextAlignmentOptions.Left);
+        TMP_Text statsBody = CreateText("PocketPalStatsBody", statsPanel.transform, "Favorite food: " + GetPocketPalFavoriteFood(saveData.selectedPocketPalId) + "\nAccessory: " + equippedAccessory + "\nPocketPal level: " + saveData.pocketPalLevel + "\nHabitat level: " + saveData.habitatLevel + "\nSnacks fed: " + saveData.snacksFed + "\nNext reward: level milestones", 28, FontStyles.Normal, TextAlignmentOptions.Left);
         statsBody.color = new Color(0.12f, 0.24f, 0.28f);
     }
 
@@ -956,7 +1112,7 @@ public class CustomizationSceneManager : MonoBehaviour
         ClearChildren(mainContent);
 
         GameSaveData saveData = SaveManager.Data;
-        string palNameText = string.IsNullOrWhiteSpace(saveData.selectedPocketPalName) ? "Panda" : saveData.selectedPocketPalName;
+        string palNameText = GetSelectedPocketPalDisplayName();
 
         TMP_Text title = CreateText("PocketPalOptionsTitle", mainContent, palNameText, 30, FontStyles.Bold, TextAlignmentOptions.Center);
         title.color = new Color(0.08f, 0.18f, 0.22f);
@@ -980,6 +1136,39 @@ public class CustomizationSceneManager : MonoBehaviour
         string palProgress = SaveManager.Data.pocketPalLevel >= LevelingSystem.MaxLevel ? "Max level" : SaveManager.Data.pocketPalXp + " / " + palNextXp + " XP";
         string habitatProgress = SaveManager.Data.habitatLevel >= LevelingSystem.MaxLevel ? "Max level" : SaveManager.Data.habitatXp + " / " + habitatNextXp + " XP";
         return "PocketPal level " + SaveManager.Data.pocketPalLevel + ": " + palProgress + "\nHabitat level " + SaveManager.Data.habitatLevel + ": " + habitatProgress + "\nTasks, feeding, shopping, and reward claims add XP.";
+    }
+
+    private string GetSelectedPocketPalDisplayName()
+    {
+        return GetPocketPalName(SaveManager.Data.selectedPocketPalId);
+    }
+
+    private string GetPocketPalName(string pocketPalId)
+    {
+        for (int index = 0; index < PocketPalCatalog.Length; index++)
+        {
+            if (PocketPalCatalog[index].id == pocketPalId)
+            {
+                return PocketPalCatalog[index].name;
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(SaveManager.Data.selectedPocketPalName) ? "Panda" : SaveManager.Data.selectedPocketPalName;
+    }
+
+    private string GetPocketPalFavoriteFood(string pocketPalId)
+    {
+        if (pocketPalId == "white_tiger")
+        {
+            return "Chilled chicken bites";
+        }
+
+        if (pocketPalId == "otter")
+        {
+            return "River fish treats";
+        }
+
+        return "Berry bites";
     }
 
     private void CreateLevelRewardCard(Transform parent, string rewardId, string title, string description, int requiredPocketPalLevel, int requiredHabitatLevel, int coinReward, string habitatRewardId, string accessoryRewardId)
