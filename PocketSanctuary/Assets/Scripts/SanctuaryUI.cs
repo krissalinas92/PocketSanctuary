@@ -23,7 +23,7 @@ public class SanctuaryUI : MonoBehaviour
     [SerializeField] private float pocketPalMoveSpeed = 120f;
     [SerializeField] private float pocketPalPauseTime = 0.8f;
     [SerializeField] private Vector2 pocketPalAreaMin = new Vector2(-390f, -520f);
-    [SerializeField] private Vector2 pocketPalAreaMax = new Vector2(390f, 520f);
+    [SerializeField] private Vector2 pocketPalAreaMax = new Vector2(390f, -70f);
 
     private RectTransform pocketPalTransform;
     private RectTransform pocketPalVisualTransform;
@@ -367,6 +367,10 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        // Keep movement constrained to the ground region of the habitat.
+        pocketPalTargetPosition = ClampPocketPalToGroundBounds(pocketPalTargetPosition);
+        pocketPalTransform.anchoredPosition = ClampPocketPalToGroundBounds(pocketPalTransform.anchoredPosition);
+
         if (pocketPalPauseTimer > 0f)
         {
             pocketPalPauseTimer -= Time.deltaTime;
@@ -398,6 +402,21 @@ public class SanctuaryUI : MonoBehaviour
             SetHabitatActivityFromMessage(pocketPalTargetMessage);
             pocketPalPauseTimer = pocketPalPauseTime;
         }
+    }
+
+    private Vector2 ClampPocketPalToGroundBounds(Vector2 position)
+    {
+        float minX = Mathf.Min(pocketPalAreaMin.x, pocketPalAreaMax.x);
+        float maxX = Mathf.Max(pocketPalAreaMin.x, pocketPalAreaMax.x);
+        float minY = Mathf.Min(pocketPalAreaMin.y, pocketPalAreaMax.y);
+        float maxY = Mathf.Max(pocketPalAreaMin.y, pocketPalAreaMax.y);
+
+        // Never allow the pet to drift above the grass line (into sky/fence area).
+        maxY = Mathf.Min(maxY, -70f);
+
+        return new Vector2(
+            Mathf.Clamp(position.x, minX, maxX),
+            Mathf.Clamp(position.y, minY, maxY));
     }
 
     private void ChooseNewPocketPalTarget()
@@ -1612,6 +1631,8 @@ public class SanctuaryUI : MonoBehaviour
         float shirtOffsetY = -52f;
         float shirtMultiplier = 0.90f;
         Vector2 shirtFallbackSize = new Vector2(186f, 122f);
+        float handheldOffsetX = 112f;
+        float handheldOffsetY = -22f;
         float headwearOffsetX = 0f;
         float headwearOffsetY = 114f;
         float headwearMultiplier = 1f;
@@ -1621,46 +1642,22 @@ public class SanctuaryUI : MonoBehaviour
         float eyewearMultiplier = 0.84f;
         Vector2 eyewearFallbackSize = new Vector2(126f, 66f);
 
-        // Species-specific fit tuning. Panda values remain untouched.
-        if (pocketPalId == "white_tiger")
+        if (headwearId == "headwear_chef_hat" || headwearId == "headwear_crown" || headwearId == "headwear_straw_hat" || headwearId == "headwear_red_cap")
         {
-            shirtOffsetY = -62f;
-            shirtMultiplier = 0.84f;
-            shirtFallbackSize = new Vector2(176f, 116f);
-            eyewearOffsetX = 4f;
-            eyewearOffsetY = 54f;
-            eyewearMultiplier = 0.80f;
-            eyewearFallbackSize = new Vector2(118f, 62f);
+          //  headwearOffsetX = 2f;
+            headwearOffsetY = 160f;
 
-            if (shirtId == "shirt_red_hoodie")
-            {
-                shirtOffsetX = 3f;
-                shirtOffsetY = -65f;
-                shirtMultiplier = 0.87f;
-                shirtFallbackSize = new Vector2(184f, 121f);
-            }
         }
-
-        if (headwearId == "headwear_chef_hat")
-        {
-            headwearOffsetX = 2f;
-            headwearOffsetY = 152f;
-            headwearMultiplier = 1.07f;
-            headwearFallbackSize = new Vector2(203f, 139f);
-        }
-        else if (headwearId == "headwear_crown")
-        {
-            headwearOffsetY = 182f;
-        }
-        else if (headwearId == "headwear_straw_hat")
-        {
-            headwearOffsetY = 150f;
-        }
-        else if (headwearId == "headwear_red_cap")
+        else if (headwearId == "headwear_blue_benie")
         {
             headwearOffsetY = 160f;
         }
+        else if (headwearId == "headwear_dino_hood" || headwearId == "headwear_aviator_hat")
+        {
+            headwearOffsetY = 100f;
+        }
 
+    
         // Some wider glasses styles need extra scale but should keep the same Y alignment.
         if (eyewearId == "eyewear_pixel_shades")
         {
@@ -1674,13 +1671,33 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         // Shirt-specific fit tuning.
-        if (shirtId == "shirt_green_bamboo")
+        if (shirtId == "shirt_green_bamboo" || shirtId == "shirt_blue_paw" || shirtId == "shirt_black_heart" || shirtId == "shirt_yellow_panda")
         {
-            shirtOffsetY -= 8f;
+            shirtOffsetY -= 25f;
         }
         else if (shirtId == "shirt_red_hoodie")
         {
-            shirtOffsetY -= 5f;
+            shirtOffsetY -= 22f;
+            shirtMultiplier *= 1.02f; // +5%
+
+        }
+        else if (shirtId == "shirt_blue_hawaiian")
+        {   
+            shirtMultiplier *= 1.02f;
+            shirtOffsetY -= 25f;
+        }
+  
+
+        if (handheldId == "prop_blue_paw_flag" || handheldId ==
+        "prop_rainbow_flag" || handheldId ==
+        "prop_red_heart_flag" || handheldId ==
+        "prop_checkered_flag" || handheldId ==
+        "prop_green_leaf_flag" || handheldId ==
+        "prop_pirate_flag"|| handheldId ==
+        "prop_panda_flag")
+        {
+            handheldOffsetX = 140f;
+            handheldOffsetY = -30f;
         }
 
         // Layered accessories from the provided panda customization sheet.
@@ -1696,7 +1713,7 @@ public class SanctuaryUI : MonoBehaviour
             "HandheldAccessory",
             visualParent,
             handheldSprite,
-            new Vector2(74f * offsetScale, -24f * offsetScale),
+            new Vector2(handheldOffsetX * offsetScale, handheldOffsetY * offsetScale),
             GetAccessoryLayerSize(handheldSprite, textureToDisplayScale, 1.06f, new Vector2(172f, 172f)),
             !string.IsNullOrEmpty(handheldId));
 
