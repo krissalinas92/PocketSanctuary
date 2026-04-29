@@ -38,9 +38,11 @@ public class CustomizationSceneManager : MonoBehaviour
     private const string PropPirateFlagAccessoryId = "prop_pirate_flag";
     private const string PropPandaFlagAccessoryId = "prop_panda_flag";
     private const string FeedTaskId = "feed_panda";
+    private const string SleepTaskId = "sleep_full_cycle";
     private const string CheckInTaskId = "check_in";
     private const string AccessorizeTaskId = "accessorize_panda";
     private const string VisitShopTaskId = "visit_shop";
+    private const float SleepSessionDurationSeconds = 480f;
     private const string StarterRewardId = "starter_coin_grant";
     private const string CareRewardId = "care_progress_bonus";
     private const string SanctuaryRewardId = "sanctuary_growth_bonus";
@@ -48,6 +50,7 @@ public class CustomizationSceneManager : MonoBehaviour
     [SerializeField] private float scrollBottomPadding = 160f;
 
     private TMP_Text pocketPalBodyText;
+    private TMP_Text pocketPalStatsText;
     private int pocketPalFeedCount;
     private bool compactDrawerMode;
     private static readonly Dictionary<string, Sprite> previewSpriteCache = new Dictionary<string, Sprite>();
@@ -161,7 +164,6 @@ public class CustomizationSceneManager : MonoBehaviour
     private static readonly HabitatDefinition[] HabitatCatalog = new HabitatDefinition[]
     {
         new HabitatDefinition("sunny_garden", "Sunny Playpen", "Zoo habitat with trees, a swing, and a small playpen."),
-        new HabitatDefinition("moonlit_pond", "Moonlit Pond", "Night habitat with a darker sky, moonlight, and a reflective pond."),
         new HabitatDefinition("bamboo_grove", "Bamboo Grove", "Reward habitat with extra bamboo shade.")
     };
 
@@ -309,6 +311,12 @@ public class CustomizationSceneManager : MonoBehaviour
     {
         ClearChildren(mainContent);
 
+        if (compactDrawerMode)
+        {
+            BuildCompactAccessoryPickerContent(mainContent);
+            return;
+        }
+
         CreateTitle(mainContent, "Customization");
 
         CreateHabitatSection(mainContent);
@@ -331,6 +339,133 @@ public class CustomizationSceneManager : MonoBehaviour
         {
             CreateAccessoryCategory(accessoriesSection.transform, accessoryCategories[index]);
         }
+    }
+
+    private void BuildCompactAccessoryPickerContent(RectTransform mainContent)
+    {
+        TMP_Text title = CreateText("CompactAccessoryTitle", mainContent, "Accessories", 30, FontStyles.Bold, TextAlignmentOptions.Left);
+        title.color = new Color(0.08f, 0.18f, 0.22f);
+
+        TMP_Text subtitle = CreateText("CompactAccessorySubtitle", mainContent, "Tap an icon to equip.", 20, FontStyles.Normal, TextAlignmentOptions.Left);
+        subtitle.color = new Color(0.2f, 0.32f, 0.36f);
+
+        string[] accessoryCategories = new string[] { "Headwear", "Eyewear", "Shirts", "Handheld" };
+        for (int index = 0; index < accessoryCategories.Length; index++)
+        {
+            CreateCompactAccessoryCategory(mainContent, accessoryCategories[index]);
+        }
+    }
+
+    private void CreateCompactAccessoryCategory(Transform parent, string categoryTitle)
+    {
+        AccessoryDefinition[] categoryItems = GetAccessoriesForCategory(categoryTitle);
+        int rows = Mathf.CeilToInt(categoryItems.Length / 2f);
+        float panelHeight = 86f + rows * 130f;
+        GameObject categoryPanel = CreatePanel(categoryTitle.Replace(" ", "") + "CompactCategory", parent, new Color(0.93f, 0.97f, 0.96f, 0.82f), panelHeight);
+        ConfigurePanelLayout(categoryPanel, 16, 16, 14, 16, 10);
+
+        TMP_Text categoryLabel = CreateText(categoryTitle.Replace(" ", "") + "CompactCategoryLabel", categoryPanel.transform, categoryTitle, 22, FontStyles.Bold, TextAlignmentOptions.Left);
+        categoryLabel.color = new Color(0.08f, 0.18f, 0.22f);
+
+        GameObject gridObject = new GameObject(categoryTitle.Replace(" ", "") + "CompactGrid", typeof(RectTransform), typeof(GridLayoutGroup), typeof(ContentSizeFitter));
+        gridObject.transform.SetParent(categoryPanel.transform, false);
+
+        RectTransform gridRect = gridObject.GetComponent<RectTransform>();
+        gridRect.anchorMin = new Vector2(0f, 1f);
+        gridRect.anchorMax = new Vector2(1f, 1f);
+        gridRect.pivot = new Vector2(0.5f, 1f);
+        gridRect.anchoredPosition = Vector2.zero;
+        gridRect.sizeDelta = new Vector2(0f, 0f);
+
+        GridLayoutGroup gridLayout = gridObject.GetComponent<GridLayoutGroup>();
+        gridLayout.startAxis = GridLayoutGroup.Axis.Horizontal;
+        gridLayout.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        gridLayout.childAlignment = TextAnchor.UpperCenter;
+        gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        gridLayout.constraintCount = 2;
+        gridLayout.cellSize = new Vector2(118f, 118f);
+        gridLayout.spacing = new Vector2(10f, 10f);
+
+        ContentSizeFitter sizeFitter = gridObject.GetComponent<ContentSizeFitter>();
+        sizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        for (int index = 0; index < categoryItems.Length; index++)
+        {
+            CreateCompactAccessoryIconButton(gridObject.transform, categoryItems[index]);
+        }
+    }
+
+    private void CreateCompactAccessoryIconButton(Transform parent, AccessoryDefinition accessory)
+    {
+        bool isOwned = IsAccessoryOwned(accessory.id);
+        bool isEquipped = IsAccessoryEquipped(accessory.id);
+        Color buttonColor = isEquipped
+            ? new Color(0.72f, 0.9f, 0.7f, 1f)
+            : isOwned
+                ? new Color(0.97f, 0.98f, 1f, 1f)
+                : new Color(0.86f, 0.88f, 0.9f, 0.95f);
+
+        GameObject buttonObject = new GameObject(accessory.id + "CompactButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(parent, false);
+
+        Image backgroundImage = buttonObject.GetComponent<Image>();
+        backgroundImage.color = buttonColor;
+        backgroundImage.raycastTarget = true;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = backgroundImage;
+        button.interactable = isOwned;
+        if (isOwned)
+        {
+            button.onClick.AddListener(delegate { ToggleAccessory(accessory.id); });
+        }
+
+        GameObject previewObject = new GameObject(accessory.id + "CompactPreview", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        previewObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform previewRect = previewObject.GetComponent<RectTransform>();
+        previewRect.anchorMin = new Vector2(0.5f, 0.5f);
+        previewRect.anchorMax = new Vector2(0.5f, 0.5f);
+        previewRect.pivot = new Vector2(0.5f, 0.5f);
+        previewRect.sizeDelta = new Vector2(98f, 98f);
+        previewRect.anchoredPosition = new Vector2(0f, -2f);
+
+        Image previewImage = previewObject.GetComponent<Image>();
+        previewImage.sprite = GetAccessoryPreviewSprite(accessory.id);
+        previewImage.preserveAspect = true;
+        previewImage.raycastTarget = false;
+        previewImage.color = isOwned ? Color.white : new Color(1f, 1f, 1f, 0.32f);
+
+        GameObject statusObject = new GameObject(accessory.id + "CompactStatus", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        statusObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform statusRect = statusObject.GetComponent<RectTransform>();
+        statusRect.anchorMin = new Vector2(1f, 1f);
+        statusRect.anchorMax = new Vector2(1f, 1f);
+        statusRect.pivot = new Vector2(1f, 1f);
+        statusRect.sizeDelta = new Vector2(28f, 28f);
+        statusRect.anchoredPosition = new Vector2(-4f, -4f);
+
+        Image statusBackground = statusObject.GetComponent<Image>();
+        statusBackground.color = isEquipped ? new Color(0.18f, 0.66f, 0.32f, 0.95f) : isOwned ? new Color(0.18f, 0.36f, 0.74f, 0.88f) : new Color(0.36f, 0.36f, 0.36f, 0.75f);
+        statusBackground.raycastTarget = false;
+
+        GameObject statusLabelObject = new GameObject(accessory.id + "CompactStatusLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        statusLabelObject.transform.SetParent(statusObject.transform, false);
+        RectTransform statusLabelRect = statusLabelObject.GetComponent<RectTransform>();
+        statusLabelRect.anchorMin = Vector2.zero;
+        statusLabelRect.anchorMax = Vector2.one;
+        statusLabelRect.offsetMin = Vector2.zero;
+        statusLabelRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI statusLabel = statusLabelObject.GetComponent<TextMeshProUGUI>();
+        statusLabel.text = isEquipped ? "E" : isOwned ? "O" : "L";
+        statusLabel.alignment = TextAlignmentOptions.Center;
+        statusLabel.fontSize = 18f;
+        statusLabel.fontStyle = FontStyles.Bold;
+        statusLabel.color = Color.white;
+        statusLabel.raycastTarget = false;
     }
 
     private float GetAccessoriesSectionHeight(string[] accessoryCategories)
@@ -377,7 +512,7 @@ public class CustomizationSceneManager : MonoBehaviour
         TMP_Text titleText = CreateText("HabitatBackgroundsTitle", section.transform, "Habitat Backgrounds", 34, FontStyles.Bold, TextAlignmentOptions.Center);
         titleText.color = new Color(0.08f, 0.18f, 0.22f);
 
-        TMP_Text subtitleText = CreateText("HabitatBackgroundsSubtitle", section.transform, "Choose the space your panda calls home.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+        TMP_Text subtitleText = CreateText("HabitatBackgroundsSubtitle", section.transform, "Choose your daytime habitat. Night mode rotates automatically.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
         subtitleText.color = new Color(0.16f, 0.28f, 0.32f);
 
         for (int index = 0; index < HabitatCatalog.Length; index++)
@@ -540,7 +675,11 @@ public class CustomizationSceneManager : MonoBehaviour
             return;
         }
 
-        SaveManager.Data.selectedPocketPalId = pocketPalId;
+        if (!SaveManager.SetSelectedPocketPal(pocketPalId))
+        {
+            return;
+        }
+
         SaveManager.Data.selectedPocketPalName = GetPocketPalName(pocketPalId);
         SaveManager.Save();
         RefreshAfterSave(SceneManager.GetActiveScene().name);
@@ -571,6 +710,32 @@ public class CustomizationSceneManager : MonoBehaviour
         }
 
         return null;
+    }
+
+    private int GetAccessoryCatalogIndex(string accessoryId)
+    {
+        for (int index = 0; index < AccessoryCatalog.Length; index++)
+        {
+            if (AccessoryCatalog[index].id == accessoryId)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private int GetAccessoryXpBonus(string accessoryId)
+    {
+        int accessoryIndex = GetAccessoryCatalogIndex(accessoryId);
+        if (accessoryIndex < 0)
+        {
+            return 40;
+        }
+
+        // Accessories deeper in the catalog grant larger progression bonuses.
+        // Index 0 starts at 40 XP so equip/unequip has an immediately visible effect.
+        return 40 + (accessoryIndex * 20);
     }
 
     private void CreateAccessoryPreview(Transform parent, string accessoryId, bool isUnlocked)
@@ -631,14 +796,15 @@ public class CustomizationSceneManager : MonoBehaviour
         }
 
         string spriteName = AccessorySpriteResourceNames[accessoryId];
+        // White tiger currently shares panda accessory sprites.
         if (pocketPalId == "white_tiger")
         {
-            return "Sprites/Accessories/white_tiger_" + spriteName;
+            return "Sprites/Accessories/" + spriteName;
         }
 
         if (pocketPalId == "otter")
         {
-            return "Sprites/Accessories/otter_" + spriteName;
+            return "Sprites/Accessories/" + spriteName;
         }
 
         return "Sprites/Accessories/" + spriteName;
@@ -693,19 +859,51 @@ public class CustomizationSceneManager : MonoBehaviour
             SaveManager.Data.equippedAccessoryIds.Add(accessoryId);
         }
 
+        RecalculatePocketPalLevelFromEquippedAccessories();
         SaveManager.Data.equippedAccessoryId = SaveManager.Data.equippedAccessoryIds.Count > 0 ? SaveManager.Data.equippedAccessoryIds[0] : "";
         SaveManager.Save();
         RefreshAfterSave(CustomizationSceneName);
     }
 
+    private void RecalculatePocketPalLevelFromEquippedAccessories()
+    {
+        int baselineLevel = SaveManager.GetAccountLevel();
+        int computedLevel = Mathf.Clamp(baselineLevel, 1, LevelingSystem.MaxLevel);
+        int computedXp = 0;
+
+        if (SaveManager.Data.equippedAccessoryIds != null)
+        {
+            for (int index = 0; index < SaveManager.Data.equippedAccessoryIds.Count; index++)
+            {
+                string equippedAccessoryId = SaveManager.Data.equippedAccessoryIds[index];
+                computedXp += Mathf.Max(0, GetAccessoryXpBonus(equippedAccessoryId));
+            }
+        }
+
+        while (computedLevel < LevelingSystem.MaxLevel && computedXp >= LevelingSystem.GetXpForNextLevel(computedLevel))
+        {
+            computedXp -= LevelingSystem.GetXpForNextLevel(computedLevel);
+            computedLevel++;
+        }
+
+        if (computedLevel >= LevelingSystem.MaxLevel)
+        {
+            computedLevel = LevelingSystem.MaxLevel;
+            computedXp = 0;
+        }
+
+        SaveManager.Data.pocketPalLevel = computedLevel;
+        SaveManager.Data.pocketPalXp = Mathf.Max(0, computedXp);
+    }
+
     private bool IsAccessoryEquipped(string accessoryId)
     {
-        return SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Contains(accessoryId);
+        return SaveManager.IsAccessoryEquippedForSelectedPocketPal(accessoryId);
     }
 
     private bool IsAccessoryOwned(string accessoryId)
     {
-        return SaveManager.Data.ownedAccessoryIds != null && SaveManager.Data.ownedAccessoryIds.Contains(accessoryId);
+        return SaveManager.IsAccessoryOwnedForSelectedPocketPal(accessoryId);
     }
 
     private void RemoveEquippedAccessoriesInCategory(string category)
@@ -717,7 +915,8 @@ public class CustomizationSceneManager : MonoBehaviour
 
         for (int index = SaveManager.Data.equippedAccessoryIds.Count - 1; index >= 0; index--)
         {
-            if (GetAccessoryCategory(SaveManager.Data.equippedAccessoryIds[index]) == category)
+            string equippedAccessoryId = SaveManager.Data.equippedAccessoryIds[index];
+            if (GetAccessoryCategory(equippedAccessoryId) == category)
             {
                 SaveManager.Data.equippedAccessoryIds.RemoveAt(index);
             }
@@ -733,8 +932,9 @@ public class CustomizationSceneManager : MonoBehaviour
             CreateTitle(mainContent, "Tasks & Rewards");
         }
 
-        GameObject tasksPanel = CreatePanel("TasksPanel", mainContent, new Color(0.86f, 0.95f, 1f, 0.84f), 860f);
-        ConfigurePanelLayout(tasksPanel, 28, 28, 34, 34, 22);
+        float tasksPanelHeight = compactDrawerMode ? 980f : 860f;
+        GameObject tasksPanel = CreatePanel("TasksPanel", mainContent, new Color(0.86f, 0.95f, 1f, 0.84f), tasksPanelHeight);
+        ConfigurePanelLayout(tasksPanel, 28, 28, 34, 34, compactDrawerMode ? 24f : 22f);
 
         if (!compactDrawerMode)
         {
@@ -745,13 +945,15 @@ public class CustomizationSceneManager : MonoBehaviour
             tasksSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
         }
 
-        CreateTaskCard(tasksPanel.transform, FeedTaskId, "Feed your panda", "Feed your panda from the PocketPal screen.", 10, SaveManager.Data.snacksFed > 0);
-        CreateTaskCard(tasksPanel.transform, CheckInTaskId, "Check in today", "Open the game and visit your sanctuary.", 5, true);
-        CreateTaskCard(tasksPanel.transform, AccessorizeTaskId, "Accessorize your panda", "Equip any style item from customization.", 15, SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0);
-        CreateTaskCard(tasksPanel.transform, VisitShopTaskId, "Visit the shop", "Browse the panda accessory shop.", 5, SaveManager.Data.hasVisitedShop);
+        CreateTaskCard(tasksPanel.transform, FeedTaskId, "Feed your panda", "Feed your panda from the PocketPal screen.", 10, 14, SaveManager.Data.snacksFed > 0);
+        CreateTaskCard(tasksPanel.transform, CheckInTaskId, "Check in today", "Open the game and visit your sanctuary.", 5, 10, true);
+        CreateTaskCard(tasksPanel.transform, AccessorizeTaskId, "Accessorize your panda", "Equip any style item from customization.", 15, 18, SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0);
+        CreateTaskCard(tasksPanel.transform, VisitShopTaskId, "Visit the shop", "Browse the panda accessory shop.", 5, 12, SaveManager.Data.hasVisitedShop);
+        CreateTaskCard(tasksPanel.transform, SleepTaskId, "Sleep 8 hours", "Let your pocketpal sleep through one full night cycle.", 20, 24, SaveManager.GetSelectedPocketPalCompletedSleepSessions() > 0);
 
-        GameObject rewardsPanel = CreatePanel("RewardsPanel", mainContent, new Color(0.83f, 0.93f, 0.78f, 0.88f), 680f);
-        ConfigurePanelLayout(rewardsPanel, 28, 28, 30, 30, 18);
+        float rewardsPanelHeight = compactDrawerMode ? 860f : 680f;
+        GameObject rewardsPanel = CreatePanel("RewardsPanel", mainContent, new Color(0.83f, 0.93f, 0.78f, 0.88f), rewardsPanelHeight);
+        ConfigurePanelLayout(rewardsPanel, 28, 28, 30, 30, compactDrawerMode ? 22f : 18f);
 
         if (!compactDrawerMode)
         {
@@ -768,8 +970,9 @@ public class CustomizationSceneManager : MonoBehaviour
         CreateRewardCard(rewardsPanel.transform, CareRewardId, "Care progress bonus", "A bonus for completing care tasks.", 25, 100);
         CreateRewardCard(rewardsPanel.transform, SanctuaryRewardId, "Sanctuary growth bonus", "A larger bonus for steady progress.", 50, 250);
 
-        GameObject levelPanel = CreatePanel("LevelRewardsPanel", mainContent, new Color(0.9f, 0.86f, 1f, 0.88f), 620f);
-        ConfigurePanelLayout(levelPanel, 28, 28, 30, 30, 18);
+        float levelPanelHeight = compactDrawerMode ? 980f : 620f;
+        GameObject levelPanel = CreatePanel("LevelRewardsPanel", mainContent, new Color(0.9f, 0.86f, 1f, 0.88f), levelPanelHeight);
+        ConfigurePanelLayout(levelPanel, 28, 28, 30, 30, compactDrawerMode ? 22f : 18f);
 
         if (!compactDrawerMode)
         {
@@ -777,9 +980,18 @@ public class CustomizationSceneManager : MonoBehaviour
             levelTitle.color = new Color(0.08f, 0.18f, 0.22f);
         }
 
-        TMP_Text levelBody = CreateText("LevelRewardsBody", levelPanel.transform, CreateLevelProgressText(), 24, FontStyles.Normal, TextAlignmentOptions.Left);
+        string levelProgressText = compactDrawerMode ? CreateCompactLevelProgressText() : CreateLevelProgressText();
+        TMP_Text levelBody = CreateText("LevelRewardsBody", levelPanel.transform, levelProgressText, 24, FontStyles.Normal, TextAlignmentOptions.Left);
+        if (compactDrawerMode)
+        {
+            levelBody.fontSize = 20f;
+            levelBody.overflowMode = TextOverflowModes.Ellipsis;
+            levelBody.lineSpacing = 4f;
+        }
         levelBody.color = new Color(0.12f, 0.24f, 0.28f);
-        float palProgress = SaveManager.Data.pocketPalLevel >= LevelingSystem.MaxLevel ? 1f : SaveManager.Data.pocketPalXp / (float)LevelingSystem.GetXpForNextLevel(SaveManager.Data.pocketPalLevel);
+        int selectedPalLevel = SaveManager.GetSelectedPocketPalLevel();
+        int selectedPalXp = SaveManager.GetSelectedPocketPalXp();
+        float palProgress = selectedPalLevel >= LevelingSystem.MaxLevel ? 1f : selectedPalXp / (float)LevelingSystem.GetXpForNextLevel(selectedPalLevel);
         CreateProgressBar("PocketPalLevelProgressBar", levelPanel.transform, palProgress, new Color(0.52f, 0.8f, 1f, 1f));
 
         CreateLevelRewardCard(levelPanel.transform, "pal_level_2_treat", "PocketPal Treat Bundle", "Reach PocketPal level 2 to earn bonus coins.", 2, 1, 75, "", "");
@@ -787,7 +999,7 @@ public class CustomizationSceneManager : MonoBehaviour
         CreateLevelRewardCard(levelPanel.transform, "pal_level_3_hat", "Level 3 Hat Reward", "Reach PocketPal level 3 to unlock the red cap.", 3, 1, 0, "", HeadwearRedCapAccessoryId);
     }
 
-    private void CreateTaskCard(Transform parent, string taskId, string title, string description, int coinReward, bool isReady)
+    private void CreateTaskCard(Transform parent, string taskId, string title, string description, int coinReward, int accountXpReward, bool isReady)
     {
         bool isComplete = IsTaskComplete(taskId);
         Color cardColor = isComplete ? new Color(0.79f, 0.88f, 0.8f, 0.92f) : new Color(0.9f, 0.97f, 1f, 0.98f);
@@ -797,7 +1009,8 @@ public class CustomizationSceneManager : MonoBehaviour
             cardColor = new Color(0.91f, 0.93f, 0.92f, 0.9f);
         }
 
-        GameObject card = CreatePanel(taskId + "TaskCard", parent, cardColor, 128f);
+        float cardHeight = compactDrawerMode ? 208f : 128f;
+        GameObject card = CreatePanel(taskId + "TaskCard", parent, cardColor, cardHeight);
 
         if (!isComplete && isReady)
         {
@@ -805,17 +1018,29 @@ public class CustomizationSceneManager : MonoBehaviour
             Image image = card.GetComponent<Image>();
             image.raycastTarget = true;
             button.targetGraphic = image;
-            button.onClick.AddListener(delegate { ClaimTaskReward(taskId, coinReward); });
+            button.onClick.AddListener(delegate { ClaimTaskReward(taskId, coinReward, accountXpReward); });
         }
 
-        ConfigurePanelLayout(card, 24, 24, 18, 18, 8);
+        ConfigurePanelLayout(card, 24, 24, compactDrawerMode ? 22 : 18, compactDrawerMode ? 22 : 18, compactDrawerMode ? 12f : 8f);
 
-        string status = GetTaskStatusText(isComplete, isReady, coinReward);
+        string status = GetTaskStatusText(isComplete, isReady, coinReward, accountXpReward);
         TMP_Text label = CreateText(taskId + "TaskLabel", card.transform, title + "\n" + description + "\n" + status, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        if (compactDrawerMode)
+        {
+            LayoutElement labelLayout = label.GetComponent<LayoutElement>();
+            label.fontSize = 20f;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            label.lineSpacing = 4f;
+            if (labelLayout != null)
+            {
+                labelLayout.preferredHeight = Mathf.Max(labelLayout.preferredHeight, 156f);
+                labelLayout.minHeight = labelLayout.preferredHeight;
+            }
+        }
         label.color = new Color(0.08f, 0.18f, 0.22f);
     }
 
-    private string GetTaskStatusText(bool isComplete, bool isReady, int coinReward)
+    private string GetTaskStatusText(bool isComplete, bool isReady, int coinReward, int accountXpReward)
     {
         if (isComplete)
         {
@@ -827,10 +1052,10 @@ public class CustomizationSceneManager : MonoBehaviour
             return "Not ready";
         }
 
-        return "+" + coinReward + " coins - tap to claim";
+        return "+" + coinReward + " coins, +" + accountXpReward + " XP - tap to claim";
     }
 
-    private void ClaimTaskReward(string taskId, int coinReward)
+    private void ClaimTaskReward(string taskId, int coinReward, int accountXpReward)
     {
         SaveManager.EnsureLoaded();
 
@@ -847,6 +1072,7 @@ public class CustomizationSceneManager : MonoBehaviour
         SaveManager.Data.completedTaskIds.Add(taskId);
         SaveManager.Data.coins += coinReward;
         SaveManager.Data.rewardProgress += coinReward;
+        LevelingSystem.GrantAccountXp(accountXpReward);
         LevelingSystem.GrantPocketPalXp(coinReward * 2);
         LevelingSystem.GrantHabitatXp(coinReward);
         SaveManager.Save();
@@ -869,7 +1095,8 @@ public class CustomizationSceneManager : MonoBehaviour
             cardColor = new Color(0.91f, 0.93f, 0.92f, 0.9f);
         }
 
-        GameObject card = CreatePanel(rewardId + "RewardCard", parent, cardColor, 128f);
+        float cardHeight = compactDrawerMode ? 208f : 128f;
+        GameObject card = CreatePanel(rewardId + "RewardCard", parent, cardColor, cardHeight);
 
         if (!isRedeemed && isUnlocked)
         {
@@ -880,10 +1107,22 @@ public class CustomizationSceneManager : MonoBehaviour
             button.onClick.AddListener(delegate { RedeemReward(rewardId, coinReward); });
         }
 
-        ConfigurePanelLayout(card, 24, 24, 18, 18, 8);
+        ConfigurePanelLayout(card, 24, 24, compactDrawerMode ? 22 : 18, compactDrawerMode ? 22 : 18, compactDrawerMode ? 12f : 8f);
 
         string status = GetRewardStatusText(isRedeemed, isUnlocked, requiredProgress, coinReward);
         TMP_Text label = CreateText(rewardId + "RewardLabel", card.transform, title + "\n" + description + "\n" + status, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        if (compactDrawerMode)
+        {
+            LayoutElement labelLayout = label.GetComponent<LayoutElement>();
+            label.fontSize = 20f;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            label.lineSpacing = 4f;
+            if (labelLayout != null)
+            {
+                labelLayout.preferredHeight = Mathf.Max(labelLayout.preferredHeight, 156f);
+                labelLayout.minHeight = labelLayout.preferredHeight;
+            }
+        }
         label.color = new Color(0.08f, 0.18f, 0.22f);
     }
 
@@ -952,10 +1191,10 @@ public class CustomizationSceneManager : MonoBehaviour
 
         if (!compactDrawerMode)
         {
-            TMP_Text shopTitle = CreateText("AccessoryShopTitle", accessoryShop.transform, "Panda Accessories", 34, FontStyles.Bold, TextAlignmentOptions.Center);
+            TMP_Text shopTitle = CreateText("AccessoryShopTitle", accessoryShop.transform, GetSelectedPocketPalDisplayName() + " Accessories", 34, FontStyles.Bold, TextAlignmentOptions.Center);
             shopTitle.color = new Color(0.08f, 0.18f, 0.22f);
 
-            TMP_Text shopSubtitle = CreateText("AccessoryShopSubtitle", accessoryShop.transform, "Buy unlocks from your uploaded panda sprite set.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
+            TMP_Text shopSubtitle = CreateText("AccessoryShopSubtitle", accessoryShop.transform, "Buy unlocks for this pocketpal.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
             shopSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
         }
 
@@ -1025,14 +1264,12 @@ public class CustomizationSceneManager : MonoBehaviour
         }
 
         SaveManager.Data.coins -= price;
-
-        if (SaveManager.Data.ownedAccessoryIds == null)
+        if (!SaveManager.AddOwnedAccessoryToSelectedPocketPal(accessoryId))
         {
-            SaveManager.Data.ownedAccessoryIds = new System.Collections.Generic.List<string>();
+            return;
         }
 
-        SaveManager.Data.ownedAccessoryIds.Add(accessoryId);
-        LevelingSystem.GrantPocketPalXp(15);
+        LevelingSystem.GrantPocketPalXp(GetAccessoryXpBonus(accessoryId));
         SaveManager.Save();
         RefreshAfterSave(ShopSceneName);
     }
@@ -1070,6 +1307,8 @@ public class CustomizationSceneManager : MonoBehaviour
     public void BuildPocketPalContent(RectTransform mainContent)
     {
         ClearChildren(mainContent);
+        pocketPalBodyText = null;
+        pocketPalStatsText = null;
 
         CreateTitle(mainContent, "PocketPal");
 
@@ -1077,14 +1316,13 @@ public class CustomizationSceneManager : MonoBehaviour
         VerticalLayoutGroup stageLayout = ConfigurePanelLayout(stage, 28, 28, 36, 36, 22);
         stageLayout.childAlignment = TextAnchor.MiddleCenter;
 
-        GameSaveData saveData = SaveManager.Data;
         string palNameText = GetSelectedPocketPalDisplayName();
 
         TMP_Text palName = CreateText("PocketPalName", stage.transform, palNameText, 52, FontStyles.Bold, TextAlignmentOptions.Center);
         palName.color = new Color(0.08f, 0.18f, 0.22f);
 
-        pocketPalFeedCount = saveData.snacksFed;
-        pocketPalBodyText = CreateText("PocketPalBody", stage.transform, CreatePocketPalStatusText("Curious", "Ready for a snack"), 32, FontStyles.Normal, TextAlignmentOptions.Center);
+        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
+        pocketPalBodyText = CreateText("PocketPalBody", stage.transform, CreatePocketPalStatusText(), 32, FontStyles.Normal, TextAlignmentOptions.Center);
         pocketPalBodyText.color = new Color(0.12f, 0.24f, 0.28f);
 
         GameObject actionPanel = CreatePanel("PocketPalActions", mainContent, new Color(1f, 1f, 1f, 0.42f), 330f);
@@ -1093,7 +1331,6 @@ public class CustomizationSceneManager : MonoBehaviour
         TMP_Text actionLabel = CreateText("PocketPalActionLabel", actionPanel.transform, "What should " + palNameText + " do?", 30, FontStyles.Bold, TextAlignmentOptions.Center);
         actionLabel.color = new Color(0.08f, 0.18f, 0.22f);
 
-        CreateButton("AccessorizeButton", actionPanel.transform, "Accessorize", GoToCustomization, new Color(0.69f, 0.88f, 0.66f, 1f));
         CreateButton("FeedButton", actionPanel.transform, "Feed", FeedPocketPal, new Color(1f, 0.9f, 0.52f, 1f));
 
         GameObject statsPanel = CreatePanel("PocketPalStats", mainContent, new Color(0.93f, 0.96f, 0.98f, 0.8f), 360f);
@@ -1102,40 +1339,53 @@ public class CustomizationSceneManager : MonoBehaviour
         TMP_Text statsTitle = CreateText("PocketPalStatsTitle", statsPanel.transform, "PocketPal Stats", 34, FontStyles.Bold, TextAlignmentOptions.Center);
         statsTitle.color = new Color(0.08f, 0.18f, 0.22f);
 
-        string equippedAccessory = string.IsNullOrEmpty(saveData.equippedAccessoryId) ? "None equipped" : saveData.equippedAccessoryId;
-        TMP_Text statsBody = CreateText("PocketPalStatsBody", statsPanel.transform, "Favorite food: " + GetPocketPalFavoriteFood(saveData.selectedPocketPalId) + "\nAccessory: " + equippedAccessory + "\nPocketPal level: " + saveData.pocketPalLevel + "\nHabitat level: " + saveData.habitatLevel + "\nSnacks fed: " + saveData.snacksFed + "\nNext reward: level milestones", 28, FontStyles.Normal, TextAlignmentOptions.Left);
+        TMP_Text statsBody = CreateText("PocketPalStatsBody", statsPanel.transform, CreatePocketPalStatsSummary(), 28, FontStyles.Normal, TextAlignmentOptions.Left);
         statsBody.color = new Color(0.12f, 0.24f, 0.28f);
+        pocketPalStatsText = statsBody;
     }
 
     public void BuildPocketPalOptionsContent(RectTransform mainContent)
     {
         ClearChildren(mainContent);
+        pocketPalBodyText = null;
+        pocketPalStatsText = null;
 
-        GameSaveData saveData = SaveManager.Data;
         string palNameText = GetSelectedPocketPalDisplayName();
 
         TMP_Text title = CreateText("PocketPalOptionsTitle", mainContent, palNameText, 30, FontStyles.Bold, TextAlignmentOptions.Center);
         title.color = new Color(0.08f, 0.18f, 0.22f);
 
-        pocketPalFeedCount = saveData.snacksFed;
-        pocketPalBodyText = CreateText("PocketPalOptionsStatus", mainContent, CreatePocketPalStatusText("Curious", "Ready for a snack"), 22, FontStyles.Normal, TextAlignmentOptions.Center);
+        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
+        pocketPalBodyText = CreateText("PocketPalOptionsStatus", mainContent, CreatePocketPalStatusText(), 22, FontStyles.Normal, TextAlignmentOptions.Center);
         pocketPalBodyText.color = new Color(0.12f, 0.24f, 0.28f);
 
-        CreateButton("AccessorizeButton", mainContent, "Accessorize", GoToCustomization, new Color(0.69f, 0.88f, 0.66f, 1f));
         CreateButton("FeedButton", mainContent, "Feed", FeedPocketPal, new Color(1f, 0.9f, 0.52f, 1f));
 
-        string equippedAccessory = string.IsNullOrEmpty(saveData.equippedAccessoryId) ? "None" : saveData.equippedAccessoryId;
-        TMP_Text stats = CreateText("PocketPalOptionsStats", mainContent, "PocketPal level: " + saveData.pocketPalLevel + "\nHabitat level: " + saveData.habitatLevel + "\nAccessory: " + equippedAccessory, 21, FontStyles.Normal, TextAlignmentOptions.Left);
+        TMP_Text stats = CreateText("PocketPalOptionsStats", mainContent, CreatePocketPalStatsSummary(), 21, FontStyles.Normal, TextAlignmentOptions.Left);
         stats.color = new Color(0.12f, 0.24f, 0.28f);
+        pocketPalStatsText = stats;
     }
 
     private string CreateLevelProgressText()
     {
-        int palNextXp = LevelingSystem.GetXpForNextLevel(SaveManager.Data.pocketPalLevel);
+        int selectedPalLevel = SaveManager.GetSelectedPocketPalLevel();
+        int selectedPalXp = SaveManager.GetSelectedPocketPalXp();
+        int palNextXp = LevelingSystem.GetXpForNextLevel(selectedPalLevel);
         int habitatNextXp = LevelingSystem.GetXpForNextLevel(SaveManager.Data.habitatLevel);
-        string palProgress = SaveManager.Data.pocketPalLevel >= LevelingSystem.MaxLevel ? "Max level" : SaveManager.Data.pocketPalXp + " / " + palNextXp + " XP";
+        string palProgress = selectedPalLevel >= LevelingSystem.MaxLevel ? "Max level" : selectedPalXp + " / " + palNextXp + " XP";
         string habitatProgress = SaveManager.Data.habitatLevel >= LevelingSystem.MaxLevel ? "Max level" : SaveManager.Data.habitatXp + " / " + habitatNextXp + " XP";
-        return "PocketPal level " + SaveManager.Data.pocketPalLevel + ": " + palProgress + "\nHabitat level " + SaveManager.Data.habitatLevel + ": " + habitatProgress + "\nTasks, feeding, shopping, and reward claims add XP.";
+        return "PocketPal level " + selectedPalLevel + ": " + palProgress + "\nHabitat level " + SaveManager.Data.habitatLevel + ": " + habitatProgress + "\nTasks, feeding, shopping, and reward claims add XP.";
+    }
+
+    private string CreateCompactLevelProgressText()
+    {
+        int selectedPalLevel = SaveManager.GetSelectedPocketPalLevel();
+        int selectedPalXp = SaveManager.GetSelectedPocketPalXp();
+        int palNextXp = LevelingSystem.GetXpForNextLevel(selectedPalLevel);
+        int habitatNextXp = LevelingSystem.GetXpForNextLevel(SaveManager.Data.habitatLevel);
+        string palProgress = selectedPalLevel >= LevelingSystem.MaxLevel ? "Max" : selectedPalXp + " / " + palNextXp + " XP";
+        string habitatProgress = SaveManager.Data.habitatLevel >= LevelingSystem.MaxLevel ? "Max" : SaveManager.Data.habitatXp + " / " + habitatNextXp + " XP";
+        return "PocketPal Lv " + selectedPalLevel + ": " + palProgress + "\nHabitat Lv " + SaveManager.Data.habitatLevel + ": " + habitatProgress;
     }
 
     private string GetSelectedPocketPalDisplayName()
@@ -1174,7 +1424,7 @@ public class CustomizationSceneManager : MonoBehaviour
     private void CreateLevelRewardCard(Transform parent, string rewardId, string title, string description, int requiredPocketPalLevel, int requiredHabitatLevel, int coinReward, string habitatRewardId, string accessoryRewardId)
     {
         bool isRedeemed = SaveManager.Data.claimedLevelRewardIds != null && SaveManager.Data.claimedLevelRewardIds.Contains(rewardId);
-        bool isUnlocked = SaveManager.Data.pocketPalLevel >= requiredPocketPalLevel && SaveManager.Data.habitatLevel >= requiredHabitatLevel;
+        bool isUnlocked = SaveManager.GetSelectedPocketPalLevel() >= requiredPocketPalLevel && SaveManager.Data.habitatLevel >= requiredHabitatLevel;
         Color cardColor = isRedeemed ? new Color(0.79f, 0.88f, 0.8f, 0.92f) : new Color(0.91f, 0.87f, 1f, 0.98f);
 
         if (!isRedeemed && !isUnlocked)
@@ -1182,7 +1432,8 @@ public class CustomizationSceneManager : MonoBehaviour
             cardColor = new Color(0.91f, 0.93f, 0.92f, 0.9f);
         }
 
-        GameObject card = CreatePanel(rewardId + "LevelRewardCard", parent, cardColor, 138f);
+        float cardHeight = compactDrawerMode ? 208f : 138f;
+        GameObject card = CreatePanel(rewardId + "LevelRewardCard", parent, cardColor, cardHeight);
 
         if (!isRedeemed && isUnlocked)
         {
@@ -1193,10 +1444,28 @@ public class CustomizationSceneManager : MonoBehaviour
             button.onClick.AddListener(delegate { ClaimLevelReward(rewardId, requiredPocketPalLevel, requiredHabitatLevel, coinReward, habitatRewardId, accessoryRewardId); });
         }
 
-        ConfigurePanelLayout(card, 24, 24, 18, 18, 8);
+        ConfigurePanelLayout(card, 24, 24, compactDrawerMode ? 22 : 18, compactDrawerMode ? 22 : 18, compactDrawerMode ? 12f : 8f);
 
-        string status = isRedeemed ? "Claimed" : isUnlocked ? "Tap to claim" : "Requires PocketPal level " + requiredPocketPalLevel + " and habitat level " + requiredHabitatLevel;
+        string status = isRedeemed
+            ? "Claimed"
+            : isUnlocked
+                ? "Tap to claim"
+                : compactDrawerMode
+                    ? "Needs Pal Lv " + requiredPocketPalLevel + ", Habitat Lv " + requiredHabitatLevel
+                    : "Requires PocketPal level " + requiredPocketPalLevel + " and habitat level " + requiredHabitatLevel;
         TMP_Text label = CreateText(rewardId + "LevelRewardLabel", card.transform, title + "\n" + description + "\n" + status, 24, FontStyles.Normal, TextAlignmentOptions.Left);
+        if (compactDrawerMode)
+        {
+            LayoutElement labelLayout = label.GetComponent<LayoutElement>();
+            label.fontSize = 20f;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            label.lineSpacing = 4f;
+            if (labelLayout != null)
+            {
+                labelLayout.preferredHeight = Mathf.Max(labelLayout.preferredHeight, 156f);
+                labelLayout.minHeight = labelLayout.preferredHeight;
+            }
+        }
         label.color = new Color(0.08f, 0.18f, 0.22f);
     }
 
@@ -1299,18 +1568,95 @@ public class CustomizationSceneManager : MonoBehaviour
             SaveManager.Data.ownedHabitatIds.Add(habitatRewardId);
         }
 
-        if (!string.IsNullOrEmpty(accessoryRewardId) && SaveManager.Data.ownedAccessoryIds != null && !SaveManager.Data.ownedAccessoryIds.Contains(accessoryRewardId))
+        if (!string.IsNullOrEmpty(accessoryRewardId))
         {
-            SaveManager.Data.ownedAccessoryIds.Add(accessoryRewardId);
+            if (SaveManager.AddOwnedAccessoryToSelectedPocketPal(accessoryRewardId))
+            {
+                LevelingSystem.GrantPocketPalXp(GetAccessoryXpBonus(accessoryRewardId));
+            }
         }
 
         SaveManager.Save();
         RefreshAfterSave(TasksRewardsSceneName);
     }
 
-    private string CreatePocketPalStatusText(string mood, string hunger)
+    private string CreatePocketPalStatusText()
     {
-        return "Pal lives here\n\nMood: " + mood + "\nHunger: " + hunger + "\nSnacks eaten: " + pocketPalFeedCount;
+        int moodValue = SaveManager.GetSelectedPocketPalMood();
+        int hungerValue = SaveManager.GetSelectedPocketPalHunger();
+        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
+        return "Mood: " + GetMoodLabel(moodValue) + " (" + moodValue + "/100)\nHunger: " + GetHungerLabel(hungerValue) + " (" + hungerValue + "/100)\nSleep: " + CreateSleepMeterText() + "\nTimes fed: " + pocketPalFeedCount;
+    }
+
+    private string CreatePocketPalStatsSummary()
+    {
+        GameSaveData saveData = SaveManager.Data;
+        string equippedAccessory = string.IsNullOrEmpty(saveData.equippedAccessoryId) ? "None" : saveData.equippedAccessoryId;
+        return "Favorite food: " + GetPocketPalFavoriteFood(saveData.selectedPocketPalId) + "\nAccessory: " + equippedAccessory + "\nPocketPal level: " + SaveManager.GetSelectedPocketPalLevel() + "\nHunger: " + SaveManager.GetSelectedPocketPalHunger() + " / 100\nMood: " + SaveManager.GetSelectedPocketPalMood() + " / 100\nSleep meter: " + CreateSleepMeterText();
+    }
+
+    private string CreateSleepMeterText()
+    {
+        float sleepSeconds = SaveManager.GetSelectedPocketPalSleepSeconds();
+        return FormatDurationMmSs(sleepSeconds) + " / " + FormatDurationMmSs(SleepSessionDurationSeconds);
+    }
+
+    private static string FormatDurationMmSs(float seconds)
+    {
+        int clampedSeconds = Mathf.Clamp(Mathf.FloorToInt(seconds), 0, 5999);
+        int minutes = clampedSeconds / 60;
+        int remainderSeconds = clampedSeconds % 60;
+        return minutes.ToString("00") + ":" + remainderSeconds.ToString("00");
+    }
+
+    private static string GetMoodLabel(int mood)
+    {
+        if (mood >= 80)
+        {
+            return "Excited";
+        }
+
+        if (mood >= 60)
+        {
+            return "Happy";
+        }
+
+        if (mood >= 40)
+        {
+            return "Calm";
+        }
+
+        if (mood >= 20)
+        {
+            return "Grumpy";
+        }
+
+        return "Upset";
+    }
+
+    private static string GetHungerLabel(int hunger)
+    {
+        if (hunger >= 80)
+        {
+            return "Full";
+        }
+
+        if (hunger >= 60)
+        {
+            return "Content";
+        }
+
+        if (hunger >= 40)
+        {
+            return "Peckish";
+        }
+
+        if (hunger >= 20)
+        {
+            return "Hungry";
+        }
+
+        return "Very Hungry";
     }
 
     private TMP_Text CreateTitle(Transform parent, string text)
@@ -1587,15 +1933,20 @@ public class CustomizationSceneManager : MonoBehaviour
     {
         SaveManager.EnsureLoaded();
 
-        pocketPalFeedCount++;
-        SaveManager.Data.snacksFed = pocketPalFeedCount;
+        SaveManager.FeedSelectedPocketPal();
+        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
         LevelingSystem.GrantPocketPalXp(12);
         LevelingSystem.GrantHabitatXp(4);
         SaveManager.Save();
 
         if (pocketPalBodyText != null)
         {
-            pocketPalBodyText.text = CreatePocketPalStatusText("Happy", "Full");
+            pocketPalBodyText.text = CreatePocketPalStatusText();
+        }
+
+        if (pocketPalStatsText != null)
+        {
+            pocketPalStatsText.text = CreatePocketPalStatsSummary();
         }
 
         Debug.Log("PocketPal fed.");

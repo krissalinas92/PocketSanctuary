@@ -15,10 +15,18 @@ public class SanctuaryUI : MonoBehaviour
     private const string PandaBaseSpriteResourcePath = "Sprites/Accessories/panda_base_real";
     private const string WhiteTigerBaseSpriteResourcePath = "Sprites/Accessories/white_tiger_base_real";
     private const string OtterBaseSpriteResourcePath = "Sprites/Accessories/otter_base_real";
+    private const string PandaNightSleepSpriteResourcePath = "Sprites/Sleeping/panda_sleep";
+    private const string MoonlitHabitatId = "moonlit_pond";
+    private const float HabitatPhaseDurationSeconds = 480f;
+    private const int SleepSessionPocketPalXpReward = 30;
+    private const int SleepSessionAccountXpReward = 10;
+    private const float NightSleepSpriteGlobalYOffset = -120f;
     private const float DrawerTopClearance = 122f;
     private const float DrawerBottomClearance = 138f;
     private const float DrawerSideMargin = 10f;
     private const float DrawerScreenWidthRatio = 0.68f;
+    private const float CustomizationDrawerTopPadding = 4f;
+    private const float CustomizationDrawerBottomPadding = 6f;
 
     [SerializeField] private float pocketPalMoveSpeed = 120f;
     [SerializeField] private float pocketPalPauseTime = 0.8f;
@@ -29,6 +37,8 @@ public class SanctuaryUI : MonoBehaviour
     private RectTransform pocketPalVisualTransform;
     private RectTransform pocketPalSpriteTransform;
     private RectTransform pocketPalShadowTransform;
+    private RectTransform pocketPalNightStillTransform;
+    private Image pocketPalNightStillImage;
     private Transform playBallTransform;
     private Transform bambooMobileTransform;
     private Transform habitatPandaRoot;
@@ -40,16 +50,20 @@ public class SanctuaryUI : MonoBehaviour
     private Transform habitatActionSpark;
     private Transform habitatExplorerButterfly;
     private TMP_Text habitatStatusLabel;
+    private TMP_Text sleepMeterLabel;
     private Vector2 pocketPalTargetPosition;
     private string pocketPalTargetMessage = "Panda is exploring the habitat.";
     private HabitatActivity habitatActivity = HabitatActivity.Exploring;
     private float pocketPalPauseTimer;
     private float pocketPalAnimationTimer;
     private float pocketPalFacingDirection = 1f;
+    private float habitatPhaseTimer;
+    private bool isNightHabitatActive;
     private static Sprite pandaSprite;
     private static Sprite tigerSprite;
     private static Sprite otterSprite;
     private static Sprite shadowSprite;
+    private static Sprite pandaNightSleepSprite;
     private static readonly string[] EyewearAccessoryIds = new string[]
     {
         "eyewear_round_glasses",
@@ -154,17 +168,25 @@ public class SanctuaryUI : MonoBehaviour
     private void Start()
     {
         SaveManager.EnsureLoaded();
+        habitatPhaseTimer = 0f;
+        isNightHabitatActive = false;
         BuildSanctuaryHome();
         DisableTextRaycasts();
         CreatePocketPalButton();
         ChooseNewPocketPalTarget();
+        ApplyNighttimePresentation(true);
     }
 
     private void Update()
     {
-        MovePocketPal();
+        UpdateDayNightCycle();
+        if (!isNightHabitatActive)
+        {
+            MovePocketPal();
+        }
         AnimateHabitatProps();
         AnimateDrawer();
+        UpdateSleepMeterUI();
     }
 
     public void OnCustomizationClicked()
@@ -184,6 +206,13 @@ public class SanctuaryUI : MonoBehaviour
         TogglePanel(PanelKind.PocketPal);
     }
 
+    public void ToggleNightModeForTesting()
+    {
+        habitatPhaseTimer = 0f;
+        isNightHabitatActive = !isNightHabitatActive;
+        OnHabitatPhaseChanged();
+    }
+
     public void RefreshOpenPanel()
     {
         if (openPanel == PanelKind.None)
@@ -191,10 +220,13 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        bool preserveDrawerScroll = openPanel == PanelKind.Customization || openPanel == PanelKind.TasksRewards;
+        float preservedVerticalScroll = preserveDrawerScroll ? GetActiveDrawerVerticalScrollPosition() : 1f;
         RefreshHabitatBackground();
-        BuildDrawerContent(openPanel);
+        BuildDrawerContent(openPanel, preserveDrawerScroll, preservedVerticalScroll);
         RefreshTopBar();
         RefreshPocketPalVisual();
+        ApplyNighttimePresentation(true);
         PositionPocketPalPopup();
     }
 
@@ -209,6 +241,7 @@ public class SanctuaryUI : MonoBehaviour
         ApplyHabitatBackground(background);
         Remove3DHabitatView(background);
         EnsureHomeLabels(background);
+        EnsureSleepMeterLabel(background);
         StyleBottomNavigationButtons();
     }
 
@@ -228,12 +261,202 @@ public class SanctuaryUI : MonoBehaviour
         Image backgroundImage = background.GetComponent<Image>();
         if (backgroundImage != null)
         {
-            backgroundImage.sprite = GetHabitatBackgroundSprite(SaveManager.Data.selectedHabitatId);
+            backgroundImage.sprite = GetHabitatBackgroundSprite(GetActiveHabitatId());
             backgroundImage.color = Color.white;
             backgroundImage.type = Image.Type.Simple;
             backgroundImage.preserveAspect = false;
             backgroundImage.raycastTarget = false;
         }
+    }
+
+    private string GetDaytimeHabitatId()
+    {
+        string selectedHabitatId = SaveManager.Data != null ? SaveManager.Data.selectedHabitatId : "sunny_garden";
+        if (string.IsNullOrEmpty(selectedHabitatId) || selectedHabitatId == MoonlitHabitatId)
+        {
+            return "sunny_garden";
+        }
+
+        return selectedHabitatId;
+    }
+
+    private string GetActiveHabitatId()
+    {
+        return isNightHabitatActive ? MoonlitHabitatId : GetDaytimeHabitatId();
+    }
+
+    private void UpdateDayNightCycle()
+    {
+        if (isNightHabitatActive)
+        {
+            ProcessNightSleep(Time.deltaTime);
+        }
+
+        habitatPhaseTimer += Time.deltaTime;
+        if (habitatPhaseTimer < HabitatPhaseDurationSeconds)
+        {
+            return;
+        }
+
+        habitatPhaseTimer = 0f;
+        isNightHabitatActive = !isNightHabitatActive;
+        OnHabitatPhaseChanged();
+    }
+
+    private void OnHabitatPhaseChanged()
+    {
+        RefreshHabitatBackground();
+        ApplyNighttimePresentation(true);
+        UpdateSleepMeterUI();
+        if (isNightHabitatActive)
+        {
+            pocketPalTargetPosition = new Vector2(0f, -210f);
+            pocketPalTargetMessage = GetPocketPalDisplayName() + " is sleeping.";
+            SetHabitatActivity(HabitatActivity.SleepingInHammock);
+            pocketPalPauseTimer = pocketPalPauseTime;
+            return;
+        }
+
+        pocketPalPauseTimer = 0f;
+        ChooseNewPocketPalTarget();
+    }
+
+    private void ProcessNightSleep(float deltaSeconds)
+    {
+        int completedSessions = SaveManager.AddSelectedPocketPalSleepTime(deltaSeconds, HabitatPhaseDurationSeconds);
+        if (completedSessions <= 0)
+        {
+            return;
+        }
+
+        LevelingSystem.GrantPocketPalXp(SleepSessionPocketPalXpReward * completedSessions);
+        LevelingSystem.GrantAccountXp(SleepSessionAccountXpReward * completedSessions);
+        SaveManager.Save();
+
+        if (openPanel == PanelKind.TasksRewards || openPanel == PanelKind.PocketPal)
+        {
+            RefreshOpenPanel();
+        }
+    }
+
+    private void ApplyNighttimePresentation(bool refreshStillSprite)
+    {
+        if (pocketPalTransform == null)
+        {
+            return;
+        }
+
+        if (isNightHabitatActive)
+        {
+            // During night mode, keep the sleeping still in the center of the screen.
+            pocketPalTransform.anchoredPosition = Vector2.zero;
+        }
+
+        EnsureNighttimeStillLayer();
+        if (refreshStillSprite && pocketPalNightStillImage != null)
+        {
+            Sprite stillSprite = GetNighttimeStillSprite();
+            pocketPalNightStillImage.sprite = stillSprite;
+            pocketPalNightStillImage.enabled = stillSprite != null;
+            ConfigureNighttimeStillLayout(stillSprite);
+        }
+
+        Transform visualTransform = pocketPalTransform.Find("PandaVisual");
+        Transform shadowTransform = pocketPalTransform.Find("PocketPalShadow");
+        if (visualTransform != null)
+        {
+            visualTransform.gameObject.SetActive(!isNightHabitatActive);
+        }
+
+        if (shadowTransform != null)
+        {
+            shadowTransform.gameObject.SetActive(!isNightHabitatActive);
+        }
+
+        if (pocketPalNightStillTransform != null)
+        {
+            bool canShowStill = isNightHabitatActive && pocketPalNightStillImage != null && pocketPalNightStillImage.sprite != null;
+            pocketPalNightStillTransform.gameObject.SetActive(canShowStill);
+        }
+    }
+
+    private void EnsureNighttimeStillLayer()
+    {
+        if (pocketPalTransform == null)
+        {
+            return;
+        }
+
+        if (pocketPalNightStillTransform != null && pocketPalNightStillImage != null)
+        {
+            return;
+        }
+
+        Transform existingStill = pocketPalTransform.Find("NighttimeStill");
+        if (existingStill != null)
+        {
+            pocketPalNightStillTransform = existingStill.GetComponent<RectTransform>();
+            pocketPalNightStillImage = existingStill.GetComponent<Image>();
+            return;
+        }
+
+        GameObject stillObject = new GameObject("NighttimeStill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        stillObject.transform.SetParent(pocketPalTransform, false);
+        stillObject.transform.SetAsLastSibling();
+
+        pocketPalNightStillTransform = stillObject.GetComponent<RectTransform>();
+        pocketPalNightStillTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        pocketPalNightStillTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        pocketPalNightStillTransform.pivot = new Vector2(0.5f, 0.5f);
+        pocketPalNightStillTransform.sizeDelta = new Vector2(540f, 540f);
+        pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, -8f);
+
+        pocketPalNightStillImage = stillObject.GetComponent<Image>();
+        pocketPalNightStillImage.preserveAspect = true;
+        pocketPalNightStillImage.raycastTarget = false;
+        stillObject.SetActive(false);
+    }
+
+    private Sprite GetNighttimeStillSprite()
+    {
+        if (SaveManager.Data == null)
+        {
+            return pandaNightSleepSprite;
+        }
+
+        if (SaveManager.Data.selectedPocketPalId == "panda")
+        {
+            if (pandaNightSleepSprite == null)
+            {
+                pandaNightSleepSprite = TryCreateSpriteFromResource(PandaNightSleepSpriteResourcePath);
+            }
+
+            if (pandaNightSleepSprite != null)
+            {
+                return pandaNightSleepSprite;
+            }
+        }
+
+        return GetSelectedPocketPalSprite();
+    }
+
+    private void ConfigureNighttimeStillLayout(Sprite stillSprite)
+    {
+        if (pocketPalNightStillTransform == null)
+        {
+            return;
+        }
+
+        bool isPandaSleepingSprite = SaveManager.Data != null && SaveManager.Data.selectedPocketPalId == "panda" && stillSprite == pandaNightSleepSprite;
+        if (isPandaSleepingSprite)
+        {
+            pocketPalNightStillTransform.sizeDelta = new Vector2(300f, 300f);
+            pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, NightSleepSpriteGlobalYOffset);
+            return;
+        }
+
+        pocketPalNightStillTransform.sizeDelta = new Vector2(230f, 230f);
+        pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, NightSleepSpriteGlobalYOffset);
     }
 
     private void EnsureHomeLabels(Transform background)
@@ -283,6 +506,77 @@ public class SanctuaryUI : MonoBehaviour
         }
     }
 
+    private void EnsureSleepMeterLabel(Transform background)
+    {
+        Transform labelParent = background.parent != null ? background.parent : background;
+        Transform sleepTransform = labelParent.Find("SleepMeterLabel");
+        if (sleepTransform == null)
+        {
+            sleepTransform = background.Find("SleepMeterLabel");
+        }
+
+        if (sleepTransform == null)
+        {
+            sleepMeterLabel = CreateHomeLabel("SleepMeterLabel", labelParent, string.Empty, new Vector2(0.5f, 0.86f), 20f);
+        }
+        else
+        {
+            if (sleepTransform.parent != labelParent)
+            {
+                sleepTransform.SetParent(labelParent, false);
+            }
+
+            sleepMeterLabel = sleepTransform.GetComponent<TMP_Text>();
+        }
+
+        if (sleepMeterLabel == null)
+        {
+            return;
+        }
+
+        RectTransform sleepRect = sleepMeterLabel.GetComponent<RectTransform>();
+        sleepRect.anchorMin = new Vector2(0.5f, 0.86f);
+        sleepRect.anchorMax = new Vector2(0.5f, 0.86f);
+        sleepRect.pivot = new Vector2(0.5f, 0.5f);
+        sleepRect.sizeDelta = new Vector2(420f, 54f);
+        sleepRect.anchoredPosition = Vector2.zero;
+
+        sleepMeterLabel.color = new Color(0.12f, 0.2f, 0.28f, 1f);
+        sleepMeterLabel.fontSize = 20f;
+        sleepMeterLabel.alignment = TextAlignmentOptions.Center;
+        sleepMeterLabel.text = string.Empty;
+        sleepMeterLabel.gameObject.SetActive(true);
+    }
+
+    private void UpdateSleepMeterUI()
+    {
+        if (sleepMeterLabel == null)
+        {
+            Transform background = FindCanvasChild("Background");
+            if (background != null)
+            {
+                EnsureSleepMeterLabel(background);
+            }
+        }
+
+        if (sleepMeterLabel == null)
+        {
+            return;
+        }
+
+        float sleepSeconds = SaveManager.GetSelectedPocketPalSleepSeconds();
+        float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds) * 100f;
+        sleepMeterLabel.text = "Sleep " + FormatDurationMmSs(sleepSeconds) + " / " + FormatDurationMmSs(HabitatPhaseDurationSeconds) + " (" + Mathf.FloorToInt(sleepProgress) + "%)";
+    }
+
+    private static string FormatDurationMmSs(float totalSeconds)
+    {
+        int clampedSeconds = Mathf.Clamp(Mathf.FloorToInt(totalSeconds), 0, 5999);
+        int minutes = clampedSeconds / 60;
+        int seconds = clampedSeconds % 60;
+        return minutes.ToString("00") + ":" + seconds.ToString("00");
+    }
+
     private void CreatePocketPalButton()
     {
         Canvas canvas = FindAnyObjectByType<Canvas>();
@@ -317,6 +611,8 @@ public class SanctuaryUI : MonoBehaviour
                     nameLabel.text = GetPocketPalDisplayName();
                 }
             }
+
+            ApplyNighttimePresentation(true);
 
             return;
         }
@@ -421,6 +717,14 @@ public class SanctuaryUI : MonoBehaviour
 
     private void ChooseNewPocketPalTarget()
     {
+        if (isNightHabitatActive)
+        {
+            pocketPalTargetPosition = new Vector2(0f, -210f);
+            pocketPalTargetMessage = GetPocketPalDisplayName() + " is sleeping.";
+            SetHabitatActivity(HabitatActivity.SleepingInHammock);
+            return;
+        }
+
         if (Random.value < 0.62f)
         {
             int targetIndex = Random.Range(0, 4);
@@ -448,17 +752,9 @@ public class SanctuaryUI : MonoBehaviour
                 return;
             }
 
-            if (SaveManager.Data.selectedHabitatId == "moonlit_pond")
-            {
-                pocketPalTargetPosition = new Vector2(0f, -245f);
-                pocketPalTargetMessage = "Panda is napping in the bed.";
-                SetHabitatActivity(HabitatActivity.SleepingInHammock);
-                return;
-            }
-
-            pocketPalTargetPosition = new Vector2(225f, -310f);
-            pocketPalTargetMessage = "Panda is batting the toy ball.";
-            SetHabitatActivity(HabitatActivity.BattingBall);
+            pocketPalTargetPosition = new Vector2(0f, -120f);
+            pocketPalTargetMessage = "Panda is exploring the habitat.";
+            SetHabitatActivity(HabitatActivity.Exploring);
             return;
         }
 
@@ -555,7 +851,7 @@ public class SanctuaryUI : MonoBehaviour
         closeButton.onClick.AddListener(ClosePanel);
     }
 
-    private void BuildDrawerContent(PanelKind panelKind)
+    private void BuildDrawerContent(PanelKind panelKind, bool preserveVerticalScroll = false, float preservedVerticalScroll = 1f)
     {
         EnsureDrawerRoot();
 
@@ -620,10 +916,21 @@ public class SanctuaryUI : MonoBehaviour
         Canvas.ForceUpdateCanvases();
         NormalizeDrawerLayout(scrollRect);
         LayoutRebuilder.ForceRebuildLayoutImmediate(activeDrawerContent);
-        scrollRect.verticalNormalizedPosition = 1f;
+        scrollRect.verticalNormalizedPosition = preserveVerticalScroll ? Mathf.Clamp01(preservedVerticalScroll) : 1f;
         scrollRect.horizontalNormalizedPosition = 0f;
         PositionPocketPalPopup();
         RefreshTopBar();
+    }
+
+    private float GetActiveDrawerVerticalScrollPosition()
+    {
+        if (activeDrawer == null)
+        {
+            return 1f;
+        }
+
+        ScrollRect scrollRect = activeDrawer.GetComponentInChildren<ScrollRect>();
+        return scrollRect != null ? scrollRect.verticalNormalizedPosition : 1f;
     }
 
     private void ConfigureDrawerTransform(RectTransform drawerTransform, PanelKind panelKind)
@@ -648,6 +955,33 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        if (panelKind == PanelKind.Customization || panelKind == PanelKind.TasksRewards)
+        {
+            ResolveCustomizationDrawerClearances(out float customizationTopClearance, out float customizationBottomClearance);
+
+            float customizationCanvasWidth = drawerRoot != null ? drawerRoot.rect.width : 1080f;
+            if (customizationCanvasWidth <= 1f && drawerRoot != null && drawerRoot.parent is RectTransform customizationParentRect)
+            {
+                customizationCanvasWidth = customizationParentRect.rect.width;
+            }
+
+            if (customizationCanvasWidth <= 1f)
+            {
+                customizationCanvasWidth = 1080f;
+            }
+
+            float customizationDrawerWidth = Mathf.Clamp(customizationCanvasWidth * 0.34f, 280f, 420f);
+            bool isRightSideDrawer = panelKind == PanelKind.TasksRewards;
+            float horizontalAnchor = isRightSideDrawer ? 1f : 0f;
+            drawerTransform.anchorMin = new Vector2(horizontalAnchor, 0f);
+            drawerTransform.anchorMax = new Vector2(horizontalAnchor, 1f);
+            drawerTransform.pivot = new Vector2(isRightSideDrawer ? 1f : 0f, 0.5f);
+            drawerTransform.sizeDelta = new Vector2(customizationDrawerWidth, -(customizationTopClearance + customizationBottomClearance));
+            float horizontalOffset = isRightSideDrawer ? -DrawerSideMargin : DrawerSideMargin;
+            drawerTransform.anchoredPosition = new Vector2(horizontalOffset, (customizationBottomClearance - customizationTopClearance) * 0.5f);
+            return;
+        }
+
         float canvasWidth = drawerRoot != null ? drawerRoot.rect.width : 1080f;
         if (canvasWidth <= 1f && drawerRoot != null && drawerRoot.parent is RectTransform parentRect)
         {
@@ -665,6 +999,78 @@ public class SanctuaryUI : MonoBehaviour
         drawerTransform.pivot = new Vector2(0.5f, 0.5f);
         drawerTransform.sizeDelta = new Vector2(drawerWidth, -(DrawerTopClearance + DrawerBottomClearance));
         drawerTransform.anchoredPosition = new Vector2(0f, (DrawerBottomClearance - DrawerTopClearance) * 0.5f);
+    }
+
+    private void ResolveCustomizationDrawerClearances(out float topClearance, out float bottomClearance)
+    {
+        topClearance = DrawerTopClearance;
+        bottomClearance = DrawerBottomClearance;
+
+        if (drawerRoot == null)
+        {
+            return;
+        }
+
+        RectTransform topBarRect = FindTopBarRect();
+        if (topBarRect != null && TryGetRectVerticalBoundsInDrawerRoot(topBarRect, out float topBarMinY, out _))
+        {
+            topClearance = Mathf.Max(0f, drawerRoot.rect.yMax - topBarMinY + CustomizationDrawerTopPadding);
+        }
+
+        RectTransform customizationButtonRect = FindCustomizationButtonRect();
+        if (customizationButtonRect != null && TryGetRectVerticalBoundsInDrawerRoot(customizationButtonRect, out _, out float customizationButtonMaxY))
+        {
+            bottomClearance = Mathf.Max(0f, customizationButtonMaxY - drawerRoot.rect.yMin + CustomizationDrawerBottomPadding);
+        }
+
+        float maxAllowedClearance = Mathf.Max(0f, drawerRoot.rect.height - 220f);
+        topClearance = Mathf.Clamp(topClearance, 0f, maxAllowedClearance);
+        bottomClearance = Mathf.Clamp(bottomClearance, 0f, maxAllowedClearance);
+    }
+
+    private RectTransform FindTopBarRect()
+    {
+        TopBarManager topBarManager = FindAnyObjectByType<TopBarManager>();
+        if (topBarManager != null)
+        {
+            return topBarManager.GetComponent<RectTransform>();
+        }
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        Transform topBarTransform = canvas != null ? FindDescendant(canvas.transform, "TopBar") : null;
+        return topBarTransform as RectTransform;
+    }
+
+    private RectTransform FindCustomizationButtonRect()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return null;
+        }
+
+        Transform customizationButton = FindDescendant(canvas.transform, "CustomizationButton");
+        return customizationButton as RectTransform;
+    }
+
+    private bool TryGetRectVerticalBoundsInDrawerRoot(RectTransform sourceRect, out float minY, out float maxY)
+    {
+        minY = 0f;
+        maxY = 0f;
+
+        if (sourceRect == null || drawerRoot == null)
+        {
+            return false;
+        }
+
+        Vector3[] worldCorners = new Vector3[4];
+        sourceRect.GetWorldCorners(worldCorners);
+
+        Vector2 bottomLeft = drawerRoot.InverseTransformPoint(worldCorners[0]);
+        Vector2 topRight = drawerRoot.InverseTransformPoint(worldCorners[2]);
+        minY = bottomLeft.y;
+        maxY = topRight.y;
+        return true;
     }
 
     private ScrollRect CreateDrawerScroll(Transform parent, bool horizontal)
@@ -973,6 +1379,9 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        pocketPalNightStillTransform = null;
+        pocketPalNightStillImage = null;
+
         Transform existingVisual = pocketPalTransform.Find("PandaVisual");
         if (existingVisual != null)
         {
@@ -985,7 +1394,14 @@ public class SanctuaryUI : MonoBehaviour
             Destroy(existingShadow.gameObject);
         }
 
+        Transform existingNightStill = pocketPalTransform.Find("NighttimeStill");
+        if (existingNightStill != null)
+        {
+            Destroy(existingNightStill.gameObject);
+        }
+
         CreatePocketPalSprite(pocketPalTransform);
+        ApplyNighttimePresentation(true);
     }
 
     private Transform FindCanvasChild(string childName)
@@ -1602,7 +2018,7 @@ public class SanctuaryUI : MonoBehaviour
         pocketPalSpriteTransform.anchorMax = new Vector2(0.5f, 0.5f);
         pocketPalSpriteTransform.pivot = new Vector2(0.5f, 0.5f);
         pocketPalSpriteTransform.sizeDelta = new Vector2(285f, 285f);
-        pocketPalSpriteTransform.anchoredPosition = Vector2.zero;
+        pocketPalSpriteTransform.anchoredPosition = GetPocketPalBodyOffset();
 
         Image pandaImage = spriteObject.GetComponent<Image>();
         pandaImage.sprite = GetSelectedPocketPalSprite();
@@ -1749,12 +2165,7 @@ public class SanctuaryUI : MonoBehaviour
 
     private bool HasEquippedAccessory(string accessoryId)
     {
-        if (SaveManager.Data.equippedAccessoryId == accessoryId)
-        {
-            return true;
-        }
-
-        return SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Contains(accessoryId);
+        return SaveManager.IsAccessoryEquippedForSelectedPocketPal(accessoryId);
     }
 
     private void CreateAccessoryLayer(string objectName, Transform parent, Sprite sprite, Vector2 anchoredPosition, Vector2 size, bool isVisible)
@@ -1896,14 +2307,15 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         string spriteName = AccessorySpriteResourceNames[accessoryId];
+        // White tiger currently shares panda accessory sprites.
         if (pocketPalId == "white_tiger")
         {
-            return "Sprites/Accessories/white_tiger_" + spriteName;
+            return "Sprites/Accessories/" + spriteName;
         }
 
         if (pocketPalId == "otter")
         {
-            return "Sprites/Accessories/otter_" + spriteName;
+            return "Sprites/Accessories/" + spriteName;
         }
 
         return "Sprites/Accessories/" + spriteName;
@@ -1980,26 +2392,32 @@ public class SanctuaryUI : MonoBehaviour
 
     private float GetPocketPalVisualScale()
     {
-        if (SaveManager.Data == null)
+        if (SaveManager.Data != null && SaveManager.Data.selectedPocketPalId == "white_tiger")
         {
-            return 1f;
+            return 1.2f;
         }
 
-        if (SaveManager.Data.selectedPocketPalId == "white_tiger")
+        if (SaveManager.Data != null && SaveManager.Data.selectedPocketPalId == "otter")
         {
-            // Normalize tiger width against panda using sprite aspect ratios.
-            if (pandaSprite != null && tigerSprite != null && pandaSprite.rect.height > 0.01f && tigerSprite.rect.height > 0.01f)
-            {
-                float pandaAspect = pandaSprite.rect.width / pandaSprite.rect.height;
-                float tigerAspect = tigerSprite.rect.width / tigerSprite.rect.height;
-                float normalizedScale = pandaAspect / tigerAspect;
-                return Mathf.Clamp(normalizedScale, 0.84f, 1f);
-            }
-
-            return 0.88f;
+            return 1.3f;
         }
 
         return 1f;
+    }
+
+    private Vector2 GetPocketPalBodyOffset()
+    {
+        if (SaveManager.Data != null && SaveManager.Data.selectedPocketPalId == "white_tiger")
+        {
+            return new Vector2(-6f, 0f);
+        }
+
+        if (SaveManager.Data != null && SaveManager.Data.selectedPocketPalId == "otter")
+        {
+            return new Vector2(-10f, -13f);
+        }
+
+        return Vector2.zero;
     }
 
     private static void EnsurePocketPalSprites()
@@ -2516,7 +2934,6 @@ public class SanctuaryUI : MonoBehaviour
         DrawRoundedRect(texture, 264, 486, 552, 18, 9, new Color(0.36f, 0.6f, 0.78f, 0.38f));
         DrawRoundedRect(texture, 376, 518, 328, 12, 6, new Color(0.98f, 0.94f, 0.72f, 0.18f));
         DrawRoundedRect(texture, 424, 452, 244, 10, 5, new Color(0.62f, 0.78f, 0.92f, 0.2f));
-        DrawMoonlitBed(texture, 330, 620);
         DrawHabitatRock(texture, 218, 380, 1.05f);
         DrawHabitatRock(texture, 854, 430, 0.82f);
 
