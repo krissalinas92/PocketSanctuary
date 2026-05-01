@@ -52,7 +52,7 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
   - User selects an animal to view stats such as hunger, happiness, and energy
   - User can perform care actions for that specific animal
 - Creation
-  - User customizes habitats, decorations, food choices, or accessories
+  - User customizes habitats, decorations, themes, or accessories
   - User personalizes the sanctuary and its animals
 - Profile
   - User views progress, unlocked animals, and general account information
@@ -88,7 +88,7 @@ Pocket Sanctuary is a cozy mobile animal-raising game built in Unity where playe
 - Customize
   - User can customize their PocketPal and habitat backdrop
 - Shop
-  - User buys food, toys, or decorations and returns to the Sanctuary screen
+  - User buys coin packs, accessories, or decorations and returns to the Sanctuary screen
   - User applies purchased items to animals or habitats
 - TasksRewards
   - User reviews progress and navigates back to the Sanctuary or 

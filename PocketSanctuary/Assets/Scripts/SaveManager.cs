@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
@@ -185,6 +186,70 @@ public static class SaveManager
         return Mathf.Max(0, Data.accountXp);
     }
 
+    public static int GetHabitatCleanCount()
+    {
+        EnsureLoaded();
+        return Mathf.Max(0, Data.habitatCleanCount);
+    }
+
+    public static int IncrementHabitatCleanCount(int amount = 1)
+    {
+        EnsureLoaded();
+
+        if (amount <= 0)
+        {
+            return Mathf.Max(0, Data.habitatCleanCount);
+        }
+
+        Data.habitatCleanCount = Mathf.Max(0, Data.habitatCleanCount) + amount;
+        return Data.habitatCleanCount;
+    }
+
+    public static void EnsureDailyTaskClaimsForToday()
+    {
+        EnsureLoaded();
+
+        if (Data.claimedDailyTaskIds == null)
+        {
+            Data.claimedDailyTaskIds = new List<string>();
+        }
+
+        string todayKey = GetTodayLocalDateKey();
+        if (Data.dailyTaskClaimDateKey == todayKey)
+        {
+            return;
+        }
+
+        Data.dailyTaskClaimDateKey = todayKey;
+        Data.claimedDailyTaskIds.Clear();
+        Save();
+    }
+
+    public static bool IsDailyTaskClaimed(string taskId)
+    {
+        EnsureDailyTaskClaimsForToday();
+        return !string.IsNullOrEmpty(taskId) &&
+               Data.claimedDailyTaskIds != null &&
+               Data.claimedDailyTaskIds.Contains(taskId);
+    }
+
+    public static bool TryMarkDailyTaskClaimed(string taskId)
+    {
+        EnsureDailyTaskClaimsForToday();
+        if (string.IsNullOrEmpty(taskId))
+        {
+            return false;
+        }
+
+        if (Data.claimedDailyTaskIds.Contains(taskId))
+        {
+            return false;
+        }
+
+        Data.claimedDailyTaskIds.Add(taskId);
+        return true;
+    }
+
     public static void EnforceAccountBaselineForPocketPals()
     {
         EnsureLoaded();
@@ -251,6 +316,28 @@ public static class SaveManager
         Data.snacksFed = Mathf.Max(0, Data.snacksFed) + 1;
     }
 
+    public static bool ModifySelectedPocketPalNeeds(int hungerDelta, int moodDelta)
+    {
+        EnsureLoaded();
+        PocketPalProgressData progress = GetSelectedPocketPalProgress();
+        EnsurePocketPalNeedsInitialized(progress);
+
+        int previousHunger = progress.hunger;
+        int previousMood = progress.mood;
+
+        if (hungerDelta != 0)
+        {
+            progress.hunger = Mathf.Clamp(progress.hunger + hungerDelta, 0, 100);
+        }
+
+        if (moodDelta != 0)
+        {
+            progress.mood = Mathf.Clamp(progress.mood + moodDelta, 0, 100);
+        }
+
+        return progress.hunger != previousHunger || progress.mood != previousMood;
+    }
+
     public static float GetSelectedPocketPalSleepSeconds()
     {
         EnsureLoaded();
@@ -296,6 +383,23 @@ public static class SaveManager
         }
 
         return completedSessions;
+    }
+
+    public static bool ReduceSelectedPocketPalSleepTime(float deltaSeconds)
+    {
+        EnsureLoaded();
+
+        if (deltaSeconds <= 0f)
+        {
+            return false;
+        }
+
+        PocketPalProgressData progress = GetSelectedPocketPalProgress();
+        EnsurePocketPalNeedsInitialized(progress);
+
+        float previousSleepSeconds = progress.sleepSeconds;
+        progress.sleepSeconds = Mathf.Max(0f, progress.sleepSeconds - deltaSeconds);
+        return !Mathf.Approximately(previousSleepSeconds, progress.sleepSeconds);
     }
 
     public static bool IsAccessoryOwnedForSelectedPocketPal(string accessoryId)
@@ -463,6 +567,16 @@ public static class SaveManager
             Data.completedTaskIds = new List<string>();
         }
 
+        if (Data.claimedDailyTaskIds == null)
+        {
+            Data.claimedDailyTaskIds = new List<string>();
+        }
+
+        if (string.IsNullOrEmpty(Data.dailyTaskClaimDateKey))
+        {
+            Data.dailyTaskClaimDateKey = GetTodayLocalDateKey();
+        }
+
         if (Data.redeemedRewardIds == null)
         {
             Data.redeemedRewardIds = new List<string>();
@@ -497,12 +611,22 @@ public static class SaveManager
             Data.habitatXp = 0;
         }
 
+        if (Data.habitatCleanCount < 0)
+        {
+            Data.habitatCleanCount = 0;
+        }
+
         if (ForceUnlockAllContentForTesting)
         {
             UnlockAllContentForTesting(validAccessoryIds);
         }
 
         PersistSelectedPocketPalProgress();
+    }
+
+    private static string GetTodayLocalDateKey()
+    {
+        return DateTime.Now.ToString("yyyy-MM-dd");
     }
 
     private static void EnsureOwnedAccessory(string accessoryId)

@@ -1,0 +1,24 @@
+{
+  "workspace": "/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/tmp/presentations/pocket-sanctuary-overview",
+  "pptx": "/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/tmp/presentations/pocket-sanctuary-overview/output/output.pptx",
+  "checks": {
+    "pptx_package": {
+      "slide_count": 9,
+      "media_count": 0,
+      "chart_count": 0,
+      "zero_byte_media": [],
+      "invalid_png_media": [],
+      "placeholder_text": [],
+      "debug_line_colors": [],
+      "slide_numbers": [],
+      "warnings": [],
+      "failures": []
+    },
+    "output_hygiene": {
+      "output_dir": "/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/tmp/presentations/pocket-sanctuary-overview/output",
+      "unexpected_files": []
+    }
+  },
+  "failures": [],
+  "warnings": []
+}

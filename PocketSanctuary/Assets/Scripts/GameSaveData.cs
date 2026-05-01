@@ -22,6 +22,7 @@ public class GameSaveData
     public int habitatXp = 0;
     public int snacksFed = 0;
     public int rewardProgress = 0;
+    public int habitatCleanCount = 0;
 
     public bool soundEnabled = true;
     public bool notificationsEnabled = true;
@@ -33,6 +34,8 @@ public class GameSaveData
     public List<PocketPalProgressData> pocketPalProgress = new List<PocketPalProgressData>();
     public List<string> ownedHabitatIds = new List<string> { "sunny_garden" };
     public List<string> completedTaskIds = new List<string>();
+    public string dailyTaskClaimDateKey = "";
+    public List<string> claimedDailyTaskIds = new List<string>();
     public List<string> redeemedRewardIds = new List<string>();
     public List<string> claimedLevelRewardIds = new List<string>();
 }

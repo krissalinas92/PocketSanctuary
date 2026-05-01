@@ -1,5 +1,7 @@
 using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -27,6 +29,32 @@ public class SanctuaryUI : MonoBehaviour
     private const float DrawerScreenWidthRatio = 0.68f;
     private const float CustomizationDrawerTopPadding = 4f;
     private const float CustomizationDrawerBottomPadding = 6f;
+    private const float HungerDecayIntervalSeconds = 42f;
+    private const float MoodDecayIntervalSeconds = 72f;
+    private const float NeedsPenaltyIntervalSeconds = 28f;
+    private const float DaytimeSleepDrainPerSecond = 1f;
+    private const float NeedsAutosaveIntervalSeconds = 3f;
+    private const int HungerDecayAmount = 1;
+    private const int MoodDecayAmount = 1;
+    private const float PetHoldStartSeconds = 0.25f;
+    private const float PetMoodGainIntervalSeconds = 0.35f;
+    private const int PetMoodGainAmount = 1;
+    private const float FeedInteractionHoldSeconds = 0.6f;
+    private const float HeartFxLifetimeSeconds = 0.9f;
+    private const float HeartFxRiseSpeed = 78f;
+    private const string WeedSpritesResourceFolder = "Sprites/Weeds";
+    private const string WeedRootName = "HabitatWeedsRoot";
+    private const float WeedSpawnIntervalMinSeconds = 9f;
+    private const float WeedSpawnIntervalMaxSeconds = 18f;
+    private const int InitialWeedSpawnCount = 2;
+    private const int MaxActiveWeeds = 6;
+    private const int WeedPullAccountXpReward = 3;
+    private const float WeedSpawnMinX = -470f;
+    private const float WeedSpawnMaxX = 470f;
+    private const float WeedSpawnMinY = -620f;
+    private const float WeedSpawnMaxY = -150f;
+    private static readonly Color DayStatsTextColor = new Color(0.12f, 0.2f, 0.28f, 1f);
+    private static readonly Color NightStatsTextColor = new Color(0.92f, 0.96f, 1f, 1f);
 
     [SerializeField] private float pocketPalMoveSpeed = 120f;
     [SerializeField] private float pocketPalPauseTime = 0.8f;
@@ -135,6 +163,8 @@ public class SanctuaryUI : MonoBehaviour
     private static readonly System.Collections.Generic.Dictionary<string, Sprite> accessorySpriteCache = new System.Collections.Generic.Dictionary<string, Sprite>();
     private static Sprite customizationButtonIcon;
     private static Sprite rewardsButtonIcon;
+    private static Texture2D heartFxTexture;
+    private static Sprite heartFxSprite;
     private const int PandaSpriteVersion = 2;
     private static int pandaSpriteBuildVersion = -1;
     private const int WhiteTigerSpriteVersion = 5;
@@ -146,6 +176,38 @@ public class SanctuaryUI : MonoBehaviour
     private PanelKind openPanel = PanelKind.None;
     private PanelKind targetPanel = PanelKind.None;
     private float drawerAnimationTarget;
+    private float hungerDecayTimer;
+    private float moodDecayTimer;
+    private float needsPenaltyTimer;
+    private float needsAutosaveTimer;
+    private bool hasPendingNeedsSave;
+    private bool isPettingPointerDown;
+    private bool pettingTriggeredThisPress;
+    private bool suppressNextAnimalClick;
+    private float pettingHoldTimer;
+    private float pettingMoodGainTimer;
+    private float feedInteractionHoldTimer;
+    private readonly List<FloatingHeartFx> activeHeartFx = new List<FloatingHeartFx>();
+    private RectTransform habitatWeedRoot;
+    private float weedSpawnTimer;
+    private float nextWeedSpawnDelay;
+    private readonly List<HabitatWeed> activeWeeds = new List<HabitatWeed>();
+    private static readonly List<Sprite> weedSprites = new List<Sprite>();
+    private static bool weedSpritesLoaded;
+
+    private class FloatingHeartFx
+    {
+        public RectTransform transform;
+        public Image image;
+        public float ageSeconds;
+        public Vector2 velocity;
+    }
+
+    private class HabitatWeed
+    {
+        public RectTransform transform;
+        public float spacingRadius;
+    }
 
     private enum HabitatActivity
     {
@@ -173,6 +235,7 @@ public class SanctuaryUI : MonoBehaviour
         BuildSanctuaryHome();
         DisableTextRaycasts();
         CreatePocketPalButton();
+        InitializeHabitatMaintenance();
         ChooseNewPocketPalTarget();
         ApplyNighttimePresentation(true);
     }
@@ -180,13 +243,19 @@ public class SanctuaryUI : MonoBehaviour
     private void Update()
     {
         UpdateDayNightCycle();
+        ProcessStatDegradation(Time.deltaTime);
+        UpdatePetting(Time.deltaTime);
+        UpdateInteractionLocks(Time.deltaTime);
         if (!isNightHabitatActive)
         {
             MovePocketPal();
         }
+        UpdateHabitatMaintenance(Time.deltaTime);
         AnimateHabitatProps();
         AnimateDrawer();
         UpdateSleepMeterUI();
+        UpdateHeartFx(Time.deltaTime);
+        FlushPendingNeedsSave(Time.deltaTime);
     }
 
     public void OnCustomizationClicked()
@@ -203,7 +272,307 @@ public class SanctuaryUI : MonoBehaviour
     }
     public void OnAnimalClicked()
     {
+        if (suppressNextAnimalClick)
+        {
+            suppressNextAnimalClick = false;
+            return;
+        }
+
         TogglePanel(PanelKind.PocketPal);
+    }
+
+    private void ProcessStatDegradation(float deltaTime)
+    {
+        if (deltaTime <= 0f)
+        {
+            return;
+        }
+
+        bool changed = false;
+
+        if (!isNightHabitatActive)
+        {
+            changed |= SaveManager.ReduceSelectedPocketPalSleepTime(deltaTime * DaytimeSleepDrainPerSecond);
+        }
+
+        hungerDecayTimer += deltaTime;
+        while (hungerDecayTimer >= HungerDecayIntervalSeconds)
+        {
+            hungerDecayTimer -= HungerDecayIntervalSeconds;
+            changed |= SaveManager.ModifySelectedPocketPalNeeds(-HungerDecayAmount, 0);
+        }
+
+        moodDecayTimer += deltaTime;
+        while (moodDecayTimer >= MoodDecayIntervalSeconds)
+        {
+            moodDecayTimer -= MoodDecayIntervalSeconds;
+            changed |= SaveManager.ModifySelectedPocketPalNeeds(0, -MoodDecayAmount);
+        }
+
+        needsPenaltyTimer += deltaTime;
+        while (needsPenaltyTimer >= NeedsPenaltyIntervalSeconds)
+        {
+            needsPenaltyTimer -= NeedsPenaltyIntervalSeconds;
+            int needsPenalty = EvaluateNeedsMoodPenalty();
+            if (needsPenalty > 0)
+            {
+                changed |= SaveManager.ModifySelectedPocketPalNeeds(0, -needsPenalty);
+            }
+        }
+
+        if (changed)
+        {
+            MarkNeedsDirty();
+        }
+    }
+
+    private int EvaluateNeedsMoodPenalty()
+    {
+        int penalty = 0;
+        int hunger = SaveManager.GetSelectedPocketPalHunger();
+        if (hunger <= 20)
+        {
+            penalty += 2;
+        }
+        else if (hunger <= 40)
+        {
+            penalty += 1;
+        }
+
+        float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds);
+        if (sleepProgress <= 0.1f)
+        {
+            penalty += 2;
+        }
+        else if (sleepProgress <= 0.25f)
+        {
+            penalty += 1;
+        }
+
+        return penalty;
+    }
+
+    private void UpdatePetting(float deltaTime)
+    {
+        if (!isPettingPointerDown || deltaTime <= 0f || isNightHabitatActive)
+        {
+            return;
+        }
+
+        pettingHoldTimer += deltaTime;
+        if (pettingHoldTimer < PetHoldStartSeconds)
+        {
+            return;
+        }
+
+        pettingMoodGainTimer += deltaTime;
+        while (pettingMoodGainTimer >= PetMoodGainIntervalSeconds)
+        {
+            pettingMoodGainTimer -= PetMoodGainIntervalSeconds;
+            pettingTriggeredThisPress = true;
+            EmitAffectionHeart(1);
+            if (SaveManager.ModifySelectedPocketPalNeeds(0, PetMoodGainAmount))
+            {
+                MarkNeedsDirty();
+            }
+        }
+    }
+
+    private void UpdateInteractionLocks(float deltaTime)
+    {
+        if (deltaTime <= 0f)
+        {
+            return;
+        }
+
+        if (feedInteractionHoldTimer > 0f)
+        {
+            feedInteractionHoldTimer = Mathf.Max(0f, feedInteractionHoldTimer - deltaTime);
+        }
+    }
+
+    private bool IsPocketPalInteractionLocked()
+    {
+        return isPettingPointerDown || feedInteractionHoldTimer > 0f;
+    }
+
+    public void PlayFeedReaction()
+    {
+        feedInteractionHoldTimer = Mathf.Max(feedInteractionHoldTimer, FeedInteractionHoldSeconds);
+        EmitAffectionHeart(2);
+    }
+
+    private void EmitAffectionHeart(int count)
+    {
+        if (count <= 0 || pocketPalTransform == null)
+        {
+            return;
+        }
+
+        RectTransform heartParent = pocketPalTransform.parent as RectTransform;
+        if (heartParent == null)
+        {
+            Canvas canvas = FindAnyObjectByType<Canvas>();
+            heartParent = canvas != null ? canvas.GetComponent<RectTransform>() : null;
+        }
+
+        if (heartParent == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < count; index++)
+        {
+            GameObject heartObject = new GameObject("AffectionHeartFx", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            heartObject.transform.SetParent(heartParent, false);
+            heartObject.transform.SetAsLastSibling();
+
+            RectTransform heartRect = heartObject.GetComponent<RectTransform>();
+            heartRect.anchorMin = new Vector2(0.5f, 0.5f);
+            heartRect.anchorMax = new Vector2(0.5f, 0.5f);
+            heartRect.pivot = new Vector2(0.5f, 0.5f);
+            heartRect.sizeDelta = new Vector2(44f, 44f);
+
+            Vector2 localSpawnOffset = new Vector2(Random.Range(-24f, 24f), Random.Range(92f, 124f));
+            Vector3 worldSpawn = pocketPalTransform.TransformPoint(localSpawnOffset);
+            heartRect.anchoredPosition = heartParent.InverseTransformPoint(worldSpawn);
+
+            Image heartImage = heartObject.GetComponent<Image>();
+            heartImage.sprite = GetHeartFxSprite();
+            heartImage.color = Color.white;
+            heartImage.raycastTarget = false;
+            heartImage.preserveAspect = true;
+
+            FloatingHeartFx heartFx = new FloatingHeartFx
+            {
+                transform = heartRect,
+                image = heartImage,
+                ageSeconds = 0f,
+                velocity = new Vector2(Random.Range(-18f, 18f), HeartFxRiseSpeed + Random.Range(-10f, 14f))
+            };
+            activeHeartFx.Add(heartFx);
+        }
+    }
+
+    private void UpdateHeartFx(float deltaTime)
+    {
+        if (deltaTime <= 0f || activeHeartFx.Count == 0)
+        {
+            return;
+        }
+
+        for (int index = activeHeartFx.Count - 1; index >= 0; index--)
+        {
+            FloatingHeartFx heartFx = activeHeartFx[index];
+            if (heartFx == null || heartFx.transform == null || heartFx.image == null)
+            {
+                if (heartFx != null && heartFx.transform != null)
+                {
+                    Destroy(heartFx.transform.gameObject);
+                }
+
+                activeHeartFx.RemoveAt(index);
+                continue;
+            }
+
+            heartFx.ageSeconds += deltaTime;
+            float normalizedLife = Mathf.Clamp01(heartFx.ageSeconds / HeartFxLifetimeSeconds);
+
+            heartFx.transform.anchoredPosition += heartFx.velocity * deltaTime;
+            float scale = 1f + (normalizedLife * 0.24f);
+            heartFx.transform.localScale = new Vector3(scale, scale, 1f);
+
+            Color heartColor = heartFx.image.color;
+            heartColor.a = 1f - normalizedLife;
+            heartFx.image.color = heartColor;
+
+            if (heartFx.ageSeconds >= HeartFxLifetimeSeconds)
+            {
+                Destroy(heartFx.transform.gameObject);
+                activeHeartFx.RemoveAt(index);
+            }
+        }
+    }
+
+    private Sprite GetHeartFxSprite()
+    {
+        if (heartFxSprite != null)
+        {
+            return heartFxSprite;
+        }
+
+        const int textureSize = 96;
+        heartFxTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false);
+        heartFxTexture.filterMode = FilterMode.Bilinear;
+
+        Color transparent = new Color(0f, 0f, 0f, 0f);
+        Color[] pixels = new Color[textureSize * textureSize];
+        for (int index = 0; index < pixels.Length; index++)
+        {
+            pixels[index] = transparent;
+        }
+
+        heartFxTexture.SetPixels(pixels);
+        DrawFilledHeart(heartFxTexture, 42f, 36f, 26f, new Color(1f, 0.58f, 0.82f, 1f));
+        DrawFilledHeart(heartFxTexture, 60f, 54f, 18f, new Color(1f, 0.42f, 0.75f, 1f));
+        heartFxTexture.Apply(false, false);
+
+        heartFxSprite = Sprite.Create(
+            heartFxTexture,
+            new Rect(0f, 0f, textureSize, textureSize),
+            new Vector2(0.5f, 0.5f),
+            100f);
+        return heartFxSprite;
+    }
+
+    private void DrawFilledHeart(Texture2D texture, float centerX, float centerY, float radius, Color color)
+    {
+        if (texture == null || radius <= 0f)
+        {
+            return;
+        }
+
+        int minX = Mathf.Max(0, Mathf.FloorToInt(centerX - radius * 1.25f));
+        int maxX = Mathf.Min(texture.width - 1, Mathf.CeilToInt(centerX + radius * 1.25f));
+        int minY = Mathf.Max(0, Mathf.FloorToInt(centerY - radius * 1.2f));
+        int maxY = Mathf.Min(texture.height - 1, Mathf.CeilToInt(centerY + radius * 1.35f));
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                float nx = (x - centerX) / radius;
+                float ny = (y - centerY) / radius;
+                float value = Mathf.Pow((nx * nx) + (ny * ny) - 1f, 3f) - (nx * nx * ny * ny * ny);
+                if (value <= 0f)
+                {
+                    texture.SetPixel(x, y, color);
+                }
+            }
+        }
+    }
+
+    private void MarkNeedsDirty()
+    {
+        hasPendingNeedsSave = true;
+    }
+
+    private void FlushPendingNeedsSave(float deltaTime)
+    {
+        if (!hasPendingNeedsSave)
+        {
+            return;
+        }
+
+        needsAutosaveTimer += Mathf.Max(0f, deltaTime);
+        if (needsAutosaveTimer < NeedsAutosaveIntervalSeconds)
+        {
+            return;
+        }
+
+        SaveManager.Save();
+        hasPendingNeedsSave = false;
+        needsAutosaveTimer = 0f;
     }
 
     public void ToggleNightModeForTesting()
@@ -242,7 +611,301 @@ public class SanctuaryUI : MonoBehaviour
         Remove3DHabitatView(background);
         EnsureHomeLabels(background);
         EnsureSleepMeterLabel(background);
+        EnsureHabitatWeedRoot();
         StyleBottomNavigationButtons();
+    }
+
+    private void InitializeHabitatMaintenance()
+    {
+        EnsureHabitatWeedSpritesLoaded();
+        EnsureHabitatWeedRoot();
+        ClearHabitatWeeds();
+        ScheduleNextWeedSpawn();
+
+        int initialWeedCount = Mathf.Clamp(InitialWeedSpawnCount + Random.Range(0, 2), 1, MaxActiveWeeds);
+        for (int index = 0; index < initialWeedCount; index++)
+        {
+            TrySpawnHabitatWeed();
+        }
+    }
+
+    private void ScheduleNextWeedSpawn()
+    {
+        weedSpawnTimer = 0f;
+        nextWeedSpawnDelay = Random.Range(WeedSpawnIntervalMinSeconds, WeedSpawnIntervalMaxSeconds);
+    }
+
+    private void UpdateHabitatMaintenance(float deltaTime)
+    {
+        if (deltaTime <= 0f)
+        {
+            return;
+        }
+
+        RemoveDestroyedWeedEntries();
+        EnsureHabitatWeedRoot();
+        if (habitatWeedRoot == null || weedSprites.Count == 0 || activeWeeds.Count >= MaxActiveWeeds)
+        {
+            return;
+        }
+
+        weedSpawnTimer += deltaTime;
+        if (weedSpawnTimer < nextWeedSpawnDelay)
+        {
+            return;
+        }
+
+        ScheduleNextWeedSpawn();
+        TrySpawnHabitatWeed();
+    }
+
+    private void EnsureHabitatWeedRoot()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        if (habitatWeedRoot == null)
+        {
+            Transform existingRoot = canvas.transform.Find(WeedRootName);
+            if (existingRoot != null)
+            {
+                habitatWeedRoot = existingRoot as RectTransform;
+            }
+        }
+
+        if (habitatWeedRoot == null)
+        {
+            GameObject weedRootObject = new GameObject(WeedRootName, typeof(RectTransform));
+            weedRootObject.transform.SetParent(canvas.transform, false);
+            habitatWeedRoot = weedRootObject.GetComponent<RectTransform>();
+            habitatWeedRoot.anchorMin = Vector2.zero;
+            habitatWeedRoot.anchorMax = Vector2.one;
+            habitatWeedRoot.offsetMin = Vector2.zero;
+            habitatWeedRoot.offsetMax = Vector2.zero;
+            habitatWeedRoot.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        Transform background = FindCanvasChild("Background");
+        if (background != null)
+        {
+            int siblingIndex = Mathf.Clamp(background.GetSiblingIndex() + 1, 0, canvas.transform.childCount - 1);
+            habitatWeedRoot.SetSiblingIndex(siblingIndex);
+        }
+    }
+
+    private void EnsureHabitatWeedSpritesLoaded()
+    {
+        if (weedSpritesLoaded)
+        {
+            return;
+        }
+
+        weedSpritesLoaded = true;
+        weedSprites.Clear();
+
+        Sprite[] loadedSprites = Resources.LoadAll<Sprite>(WeedSpritesResourceFolder);
+        if (loadedSprites != null && loadedSprites.Length > 0)
+        {
+            System.Array.Sort(loadedSprites, delegate (Sprite left, Sprite right)
+            {
+                string leftName = left != null ? left.name : string.Empty;
+                string rightName = right != null ? right.name : string.Empty;
+                return string.CompareOrdinal(leftName, rightName);
+            });
+
+            for (int index = 0; index < loadedSprites.Length; index++)
+            {
+                if (loadedSprites[index] != null)
+                {
+                    weedSprites.Add(loadedSprites[index]);
+                }
+            }
+        }
+
+        if (weedSprites.Count > 0)
+        {
+            return;
+        }
+
+        Texture2D[] loadedTextures = Resources.LoadAll<Texture2D>(WeedSpritesResourceFolder);
+        if (loadedTextures == null || loadedTextures.Length == 0)
+        {
+            return;
+        }
+
+        System.Array.Sort(loadedTextures, delegate (Texture2D left, Texture2D right)
+        {
+            string leftName = left != null ? left.name : string.Empty;
+            string rightName = right != null ? right.name : string.Empty;
+            return string.CompareOrdinal(leftName, rightName);
+        });
+
+        for (int index = 0; index < loadedTextures.Length; index++)
+        {
+            Texture2D texture = loadedTextures[index];
+            if (texture == null)
+            {
+                continue;
+            }
+
+            Rect spriteRect = new Rect(0f, 0f, texture.width, texture.height);
+            weedSprites.Add(Sprite.Create(texture, spriteRect, new Vector2(0.5f, 0.5f), 100f));
+        }
+    }
+
+    private bool TrySpawnHabitatWeed()
+    {
+        if (habitatWeedRoot == null || weedSprites.Count == 0 || activeWeeds.Count >= MaxActiveWeeds)
+        {
+            return false;
+        }
+
+        Sprite weedSprite = weedSprites[Random.Range(0, weedSprites.Count)];
+        if (weedSprite == null)
+        {
+            return false;
+        }
+
+        GameObject weedObject = new GameObject("HabitatWeed", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        weedObject.transform.SetParent(habitatWeedRoot, false);
+        weedObject.transform.SetAsLastSibling();
+
+        RectTransform weedTransform = weedObject.GetComponent<RectTransform>();
+        weedTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        weedTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        weedTransform.pivot = new Vector2(0.5f, 0.5f);
+
+        float sizeScale = Random.Range(0.75f, 1.08f);
+        float width = Mathf.Clamp(weedSprite.rect.width * 0.7f * sizeScale, 72f, 200f);
+        float height = width * (weedSprite.rect.height / Mathf.Max(1f, weedSprite.rect.width));
+        weedTransform.sizeDelta = new Vector2(width, height);
+
+        float spacingRadius = Mathf.Max(50f, width * 0.35f);
+        weedTransform.anchoredPosition = FindWeedSpawnPosition(spacingRadius);
+
+        Image weedImage = weedObject.GetComponent<Image>();
+        weedImage.sprite = weedSprite;
+        weedImage.preserveAspect = true;
+        weedImage.color = Color.white;
+        weedImage.raycastTarget = true;
+
+        Button weedButton = weedObject.GetComponent<Button>();
+        weedButton.targetGraphic = weedImage;
+
+        HabitatWeed weed = new HabitatWeed
+        {
+            transform = weedTransform,
+            spacingRadius = spacingRadius
+        };
+
+        weedButton.onClick.AddListener(delegate { PullHabitatWeed(weed); });
+        activeWeeds.Add(weed);
+        return true;
+    }
+
+    private Vector2 FindWeedSpawnPosition(float spacingRadius)
+    {
+        float minX = WeedSpawnMinX;
+        float maxX = WeedSpawnMaxX;
+        float minY = WeedSpawnMinY;
+        float maxY = WeedSpawnMaxY;
+
+        for (int attempt = 0; attempt < 28; attempt++)
+        {
+            Vector2 position = new Vector2(Random.Range(minX, maxX), Random.Range(minY, maxY));
+            if (pocketPalTransform != null && Vector2.Distance(position, pocketPalTransform.anchoredPosition) < 130f)
+            {
+                continue;
+            }
+
+            bool overlaps = false;
+            for (int index = 0; index < activeWeeds.Count; index++)
+            {
+                HabitatWeed existing = activeWeeds[index];
+                if (existing == null || existing.transform == null)
+                {
+                    continue;
+                }
+
+                float minDistance = spacingRadius + existing.spacingRadius;
+                if (Vector2.Distance(position, existing.transform.anchoredPosition) < minDistance)
+                {
+                    overlaps = true;
+                    break;
+                }
+            }
+
+            if (!overlaps)
+            {
+                return position;
+            }
+        }
+
+        return new Vector2(Random.Range(minX, maxX), Random.Range(minY, maxY));
+    }
+
+    private void PullHabitatWeed(HabitatWeed weed)
+    {
+        if (weed == null)
+        {
+            return;
+        }
+
+        RemoveHabitatWeed(weed);
+
+        SaveManager.IncrementHabitatCleanCount(1);
+        LevelingSystem.GrantAccountXp(WeedPullAccountXpReward);
+        SaveManager.Save();
+        RefreshTopBar();
+
+        if (openPanel == PanelKind.TasksRewards)
+        {
+            RefreshOpenPanel();
+        }
+    }
+
+    private void RemoveHabitatWeed(HabitatWeed weed)
+    {
+        if (weed == null)
+        {
+            return;
+        }
+
+        if (weed.transform != null)
+        {
+            Destroy(weed.transform.gameObject);
+        }
+
+        activeWeeds.Remove(weed);
+    }
+
+    private void RemoveDestroyedWeedEntries()
+    {
+        for (int index = activeWeeds.Count - 1; index >= 0; index--)
+        {
+            HabitatWeed weed = activeWeeds[index];
+            if (weed == null || weed.transform == null)
+            {
+                activeWeeds.RemoveAt(index);
+            }
+        }
+    }
+
+    private void ClearHabitatWeeds()
+    {
+        for (int index = activeWeeds.Count - 1; index >= 0; index--)
+        {
+            HabitatWeed weed = activeWeeds[index];
+            if (weed != null && weed.transform != null)
+            {
+                Destroy(weed.transform.gameObject);
+            }
+        }
+
+        activeWeeds.Clear();
     }
 
     private void RefreshHabitatBackground()
@@ -254,6 +917,7 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         ApplyHabitatBackground(background);
+        EnsureHabitatWeedRoot();
     }
 
     private void ApplyHabitatBackground(Transform background)
@@ -538,10 +1202,10 @@ public class SanctuaryUI : MonoBehaviour
         sleepRect.anchorMin = new Vector2(0.5f, 0.86f);
         sleepRect.anchorMax = new Vector2(0.5f, 0.86f);
         sleepRect.pivot = new Vector2(0.5f, 0.5f);
-        sleepRect.sizeDelta = new Vector2(420f, 54f);
+        sleepRect.sizeDelta = new Vector2(860f, 110f);
         sleepRect.anchoredPosition = Vector2.zero;
 
-        sleepMeterLabel.color = new Color(0.12f, 0.2f, 0.28f, 1f);
+        sleepMeterLabel.color = DayStatsTextColor;
         sleepMeterLabel.fontSize = 20f;
         sleepMeterLabel.alignment = TextAlignmentOptions.Center;
         sleepMeterLabel.text = string.Empty;
@@ -564,9 +1228,23 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        sleepMeterLabel.color = isNightHabitatActive ? NightStatsTextColor : DayStatsTextColor;
+
         float sleepSeconds = SaveManager.GetSelectedPocketPalSleepSeconds();
         float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds) * 100f;
-        sleepMeterLabel.text = "Sleep " + FormatDurationMmSs(sleepSeconds) + " / " + FormatDurationMmSs(HabitatPhaseDurationSeconds) + " (" + Mathf.FloorToInt(sleepProgress) + "%)";
+        string palName = GetPocketPalDisplayName();
+        int pocketPalLevel = SaveManager.GetSelectedPocketPalLevel();
+        int hunger = SaveManager.GetSelectedPocketPalHunger();
+        int mood = SaveManager.GetSelectedPocketPalMood();
+        int timesFed = SaveManager.GetSelectedPocketPalFeedCount();
+        sleepMeterLabel.text =
+            palName + " stats" +
+            "\nLv " + pocketPalLevel +
+            " | Hunger " + hunger + "/100" +
+            " | Mood " + mood + "/100" +
+            "\nSleep " + FormatDurationMmSs(sleepSeconds) + " / " + FormatDurationMmSs(HabitatPhaseDurationSeconds) +
+            " (" + Mathf.FloorToInt(sleepProgress) + "%)" +
+            " | Fed " + timesFed;
     }
 
     private static string FormatDurationMmSs(float totalSeconds)
@@ -599,20 +1277,13 @@ public class SanctuaryUI : MonoBehaviour
             }
 
             Transform nameTransform = existingPal.Find("PocketPalName");
-            if (nameTransform == null)
+            if (nameTransform != null)
             {
-                CreateHomeLabel("PocketPalName", existingPal, GetPocketPalDisplayName(), new Vector2(0.5f, -0.36f), 30);
-            }
-            else
-            {
-                TMP_Text nameLabel = nameTransform.GetComponent<TMP_Text>();
-                if (nameLabel != null)
-                {
-                    nameLabel.text = GetPocketPalDisplayName();
-                }
+                Destroy(nameTransform.gameObject);
             }
 
             ApplyNighttimePresentation(true);
+            ConfigurePocketPalInteraction(existingPal.gameObject);
 
             return;
         }
@@ -635,10 +1306,76 @@ public class SanctuaryUI : MonoBehaviour
 
         Button button = pocketPal.GetComponent<Button>();
         button.targetGraphic = image;
-        button.onClick.AddListener(OnAnimalClicked);
 
         CreatePocketPalSprite(pocketPal.transform);
-        CreateHomeLabel("PocketPalName", pocketPal.transform, GetPocketPalDisplayName(), new Vector2(0.5f, -0.36f), 30);
+        ConfigurePocketPalInteraction(pocketPal);
+    }
+
+    private void ConfigurePocketPalInteraction(GameObject pocketPalObject)
+    {
+        if (pocketPalObject == null)
+        {
+            return;
+        }
+
+        Button button = pocketPalObject.GetComponent<Button>();
+        if (button != null)
+        {
+            button.onClick.RemoveListener(OnAnimalClicked);
+            button.onClick.AddListener(OnAnimalClicked);
+        }
+
+        EventTrigger eventTrigger = pocketPalObject.GetComponent<EventTrigger>();
+        if (eventTrigger == null)
+        {
+            eventTrigger = pocketPalObject.AddComponent<EventTrigger>();
+        }
+
+        if (eventTrigger.triggers == null)
+        {
+            eventTrigger.triggers = new List<EventTrigger.Entry>();
+        }
+        else
+        {
+            eventTrigger.triggers.Clear();
+        }
+
+        AddPocketPalEventTrigger(eventTrigger, EventTriggerType.PointerDown, OnPocketPalPointerDown);
+        AddPocketPalEventTrigger(eventTrigger, EventTriggerType.PointerUp, OnPocketPalPointerUp);
+        AddPocketPalEventTrigger(eventTrigger, EventTriggerType.PointerExit, OnPocketPalPointerUp);
+    }
+
+    private void AddPocketPalEventTrigger(EventTrigger eventTrigger, EventTriggerType eventType, UnityEngine.Events.UnityAction<BaseEventData> callback)
+    {
+        if (eventTrigger == null || callback == null)
+        {
+            return;
+        }
+
+        EventTrigger.Entry triggerEntry = new EventTrigger.Entry();
+        triggerEntry.eventID = eventType;
+        triggerEntry.callback.AddListener(callback);
+        eventTrigger.triggers.Add(triggerEntry);
+    }
+
+    private void OnPocketPalPointerDown(BaseEventData _)
+    {
+        isPettingPointerDown = true;
+        pettingTriggeredThisPress = false;
+        pettingHoldTimer = 0f;
+        pettingMoodGainTimer = 0f;
+    }
+
+    private void OnPocketPalPointerUp(BaseEventData _)
+    {
+        if (pettingTriggeredThisPress)
+        {
+            suppressNextAnimalClick = true;
+        }
+
+        isPettingPointerDown = false;
+        pettingHoldTimer = 0f;
+        pettingMoodGainTimer = 0f;
     }
 
     private void DisableTextRaycasts()
@@ -660,6 +1397,12 @@ public class SanctuaryUI : MonoBehaviour
     {
         if (pocketPalTransform == null)
         {
+            return;
+        }
+
+        if (IsPocketPalInteractionLocked())
+        {
+            UpdatePocketPalAnimation(false);
             return;
         }
 
@@ -728,10 +1471,11 @@ public class SanctuaryUI : MonoBehaviour
         if (Random.value < 0.62f)
         {
             int targetIndex = Random.Range(0, 4);
+            string palName = GetPocketPalDisplayName();
             if (targetIndex == 0)
             {
                 pocketPalTargetPosition = new Vector2(-260f, -70f);
-                pocketPalTargetMessage = "Panda is nibbling bamboo.";
+                pocketPalTargetMessage = palName + " is nibbling bamboo.";
                 SetHabitatActivity(HabitatActivity.NibblingBamboo);
                 return;
             }
@@ -739,7 +1483,7 @@ public class SanctuaryUI : MonoBehaviour
             if (targetIndex == 1)
             {
                 pocketPalTargetPosition = new Vector2(0f, -120f);
-                pocketPalTargetMessage = "Panda is playing in the pen.";
+                pocketPalTargetMessage = palName + " is playing in the pen.";
                 SetHabitatActivity(HabitatActivity.PlayingInPen);
                 return;
             }
@@ -747,13 +1491,13 @@ public class SanctuaryUI : MonoBehaviour
             if (targetIndex == 2)
             {
                 pocketPalTargetPosition = new Vector2(225f, -310f);
-                pocketPalTargetMessage = "Panda is batting the toy ball.";
+                pocketPalTargetMessage = palName + " is batting the toy ball.";
                 SetHabitatActivity(HabitatActivity.BattingBall);
                 return;
             }
 
             pocketPalTargetPosition = new Vector2(0f, -120f);
-            pocketPalTargetMessage = "Panda is exploring the habitat.";
+            pocketPalTargetMessage = palName + " is exploring the habitat.";
             SetHabitatActivity(HabitatActivity.Exploring);
             return;
         }
@@ -761,7 +1505,7 @@ public class SanctuaryUI : MonoBehaviour
         if (Random.value < 0.28f)
         {
             pocketPalTargetPosition = new Vector2(225f, -310f);
-            pocketPalTargetMessage = "Panda is batting the toy ball.";
+            pocketPalTargetMessage = GetPocketPalDisplayName() + " is batting the toy ball.";
             SetHabitatActivity(HabitatActivity.BattingBall);
             return;
         }
@@ -769,7 +1513,7 @@ public class SanctuaryUI : MonoBehaviour
         pocketPalTargetPosition = new Vector2(
             Random.Range(pocketPalAreaMin.x, pocketPalAreaMax.x),
             Random.Range(pocketPalAreaMin.y, pocketPalAreaMax.y));
-        pocketPalTargetMessage = "Panda is exploring the habitat.";
+        pocketPalTargetMessage = GetPocketPalDisplayName() + " is exploring the habitat.";
         SetHabitatActivity(HabitatActivity.Exploring);
     }
 
@@ -794,6 +1538,30 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         drawerAnimationTarget = 1f;
+    }
+
+    private void OnDisable()
+    {
+        if (hasPendingNeedsSave)
+        {
+            SaveManager.Save();
+            hasPendingNeedsSave = false;
+            needsAutosaveTimer = 0f;
+        }
+
+        isPettingPointerDown = false;
+        feedInteractionHoldTimer = 0f;
+        for (int index = activeHeartFx.Count - 1; index >= 0; index--)
+        {
+            FloatingHeartFx heartFx = activeHeartFx[index];
+            if (heartFx != null && heartFx.transform != null)
+            {
+                Destroy(heartFx.transform.gameObject);
+            }
+        }
+
+        activeHeartFx.Clear();
+        ClearHabitatWeeds();
     }
 
     private void ClosePanel()
@@ -889,7 +1657,8 @@ public class SanctuaryUI : MonoBehaviour
         headingRect.sizeDelta = new Vector2(-96f, 54f);
         headingRect.anchoredPosition = new Vector2(0f, -16f);
 
-        ScrollRect scrollRect = CreateDrawerScroll(panelObject.transform, isShop);
+        bool disableDrawerVerticalScroll = isShop || isPocketPal;
+        ScrollRect scrollRect = CreateDrawerScroll(panelObject.transform, isShop, disableDrawerVerticalScroll, isPocketPal);
         activeDrawerContent = scrollRect.content;
 
         drawerContentBuilder = panelObject.AddComponent<CustomizationSceneManager>();
@@ -937,11 +1706,12 @@ public class SanctuaryUI : MonoBehaviour
     {
         if (panelKind == PanelKind.Shop)
         {
+            float shopTopClearance = ResolveShopDrawerTopClearance();
             drawerTransform.anchorMin = new Vector2(0f, 1f);
             drawerTransform.anchorMax = new Vector2(1f, 1f);
             drawerTransform.pivot = new Vector2(0.5f, 1f);
-            drawerTransform.sizeDelta = new Vector2(-28f, 620f);
-            drawerTransform.anchoredPosition = new Vector2(0f, -96f);
+            drawerTransform.sizeDelta = new Vector2(-20f, 270f);
+            drawerTransform.anchoredPosition = new Vector2(0f, -shopTopClearance);
             return;
         }
 
@@ -950,7 +1720,7 @@ public class SanctuaryUI : MonoBehaviour
             drawerTransform.anchorMin = new Vector2(0.5f, 0.5f);
             drawerTransform.anchorMax = new Vector2(0.5f, 0.5f);
             drawerTransform.pivot = new Vector2(0.5f, 1f);
-            drawerTransform.sizeDelta = new Vector2(410f, 380f);
+            drawerTransform.sizeDelta = new Vector2(280f, 210f);
             PositionPocketPalPopup(drawerTransform);
             return;
         }
@@ -1073,7 +1843,24 @@ public class SanctuaryUI : MonoBehaviour
         return true;
     }
 
-    private ScrollRect CreateDrawerScroll(Transform parent, bool horizontal)
+    private float ResolveShopDrawerTopClearance()
+    {
+        float topClearance = DrawerTopClearance;
+        if (drawerRoot == null)
+        {
+            return topClearance;
+        }
+
+        RectTransform topBarRect = FindTopBarRect();
+        if (topBarRect != null && TryGetRectVerticalBoundsInDrawerRoot(topBarRect, out float topBarMinY, out _))
+        {
+            topClearance = Mathf.Max(0f, drawerRoot.rect.yMax - topBarMinY + 2f);
+        }
+
+        return topClearance;
+    }
+
+    private ScrollRect CreateDrawerScroll(Transform parent, bool horizontal, bool disableVerticalScroll, bool isPocketPal)
     {
         GameObject scrollObject = new GameObject("DrawerScroll", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
         scrollObject.transform.SetParent(parent, false);
@@ -1081,8 +1868,16 @@ public class SanctuaryUI : MonoBehaviour
         RectTransform scrollTransform = scrollObject.GetComponent<RectTransform>();
         scrollTransform.anchorMin = Vector2.zero;
         scrollTransform.anchorMax = Vector2.one;
-        scrollTransform.offsetMin = new Vector2(14f, 16f);
-        scrollTransform.offsetMax = new Vector2(-14f, -74f);
+        if (isPocketPal)
+        {
+            scrollTransform.offsetMin = new Vector2(10f, 10f);
+            scrollTransform.offsetMax = new Vector2(-10f, -62f);
+        }
+        else
+        {
+            scrollTransform.offsetMin = horizontal ? new Vector2(10f, 10f) : new Vector2(14f, 16f);
+            scrollTransform.offsetMax = horizontal ? new Vector2(-10f, -40f) : new Vector2(-14f, -74f);
+        }
 
         Image scrollImage = scrollObject.GetComponent<Image>();
         scrollImage.color = new Color(1f, 1f, 1f, 0.18f);
@@ -1094,7 +1889,7 @@ public class SanctuaryUI : MonoBehaviour
         viewport.anchorMin = Vector2.zero;
         viewport.anchorMax = Vector2.one;
         viewport.offsetMin = Vector2.zero;
-        viewport.offsetMax = new Vector2(-16f, 0f);
+        viewport.offsetMax = disableVerticalScroll ? Vector2.zero : new Vector2(-16f, 0f);
 
         Image viewportImage = viewportObject.GetComponent<Image>();
         viewportImage.color = new Color(1f, 1f, 1f, 0.01f);
@@ -1111,12 +1906,12 @@ public class SanctuaryUI : MonoBehaviour
         content.sizeDelta = new Vector2(0f, 0f);
 
         VerticalLayoutGroup layoutGroup = contentObject.GetComponent<VerticalLayoutGroup>();
-        layoutGroup.padding = new RectOffset(10, 10, 10, 18);
-        layoutGroup.spacing = 18f;
+        layoutGroup.padding = isPocketPal ? new RectOffset(8, 8, 6, 6) : horizontal ? new RectOffset(4, 4, 2, 4) : new RectOffset(10, 10, 10, 18);
+        layoutGroup.spacing = isPocketPal ? 6f : horizontal ? 8f : 18f;
         layoutGroup.childAlignment = TextAnchor.UpperCenter;
-        layoutGroup.childControlWidth = true;
+        layoutGroup.childControlWidth = !isPocketPal;
         layoutGroup.childControlHeight = true;
-        layoutGroup.childForceExpandWidth = true;
+        layoutGroup.childForceExpandWidth = !isPocketPal;
         layoutGroup.childForceExpandHeight = false;
 
         ContentSizeFitter contentSizeFitter = contentObject.GetComponent<ContentSizeFitter>();
@@ -1127,12 +1922,21 @@ public class SanctuaryUI : MonoBehaviour
         scrollRect.viewport = viewport;
         scrollRect.content = content;
         scrollRect.horizontal = false;
-        scrollRect.vertical = true;
+        scrollRect.vertical = !disableVerticalScroll;
         scrollRect.movementType = ScrollRect.MovementType.Clamped;
         scrollRect.inertia = true;
-        scrollRect.verticalScrollbar = CreateDrawerScrollbar(scrollObject.transform);
-        scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
-        scrollRect.verticalScrollbarSpacing = 4f;
+        if (disableVerticalScroll)
+        {
+            scrollRect.verticalScrollbar = null;
+            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            scrollRect.verticalScrollbarSpacing = 0f;
+        }
+        else
+        {
+            scrollRect.verticalScrollbar = CreateDrawerScrollbar(scrollObject.transform);
+            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+            scrollRect.verticalScrollbarSpacing = 4f;
+        }
 
         return scrollRect;
     }
@@ -1207,6 +2011,7 @@ public class SanctuaryUI : MonoBehaviour
         content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, viewportWidth);
 
         float childWidth = Mathf.Max(1f, viewportWidth - 20f);
+        bool preservePocketPalChildWidth = targetPanel == PanelKind.PocketPal;
         for (int index = 0; index < content.childCount; index++)
         {
             RectTransform child = content.GetChild(index) as RectTransform;
@@ -1215,18 +2020,24 @@ public class SanctuaryUI : MonoBehaviour
                 continue;
             }
 
-            child.anchorMin = new Vector2(0f, child.anchorMin.y);
-            child.anchorMax = new Vector2(1f, child.anchorMax.y);
-            child.offsetMin = new Vector2(0f, child.offsetMin.y);
-            child.offsetMax = new Vector2(0f, child.offsetMax.y);
-            child.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, childWidth);
+            if (!preservePocketPalChildWidth)
+            {
+                child.anchorMin = new Vector2(0f, child.anchorMin.y);
+                child.anchorMax = new Vector2(1f, child.anchorMax.y);
+                child.offsetMin = new Vector2(0f, child.offsetMin.y);
+                child.offsetMax = new Vector2(0f, child.offsetMax.y);
+                child.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, childWidth);
+            }
 
             LayoutElement layoutElement = child.GetComponent<LayoutElement>();
             if (layoutElement != null)
             {
-                layoutElement.minWidth = childWidth;
-                layoutElement.preferredWidth = childWidth;
-                layoutElement.flexibleWidth = 0f;
+                if (!preservePocketPalChildWidth)
+                {
+                    layoutElement.minWidth = childWidth;
+                    layoutElement.preferredWidth = childWidth;
+                    layoutElement.flexibleWidth = 0f;
+                }
             }
         }
     }
@@ -1382,26 +2193,29 @@ public class SanctuaryUI : MonoBehaviour
         pocketPalNightStillTransform = null;
         pocketPalNightStillImage = null;
 
-        Transform existingVisual = pocketPalTransform.Find("PandaVisual");
-        if (existingVisual != null)
-        {
-            Destroy(existingVisual.gameObject);
-        }
-
-        Transform existingShadow = pocketPalTransform.Find("PocketPalShadow");
-        if (existingShadow != null)
-        {
-            Destroy(existingShadow.gameObject);
-        }
-
-        Transform existingNightStill = pocketPalTransform.Find("NighttimeStill");
-        if (existingNightStill != null)
-        {
-            Destroy(existingNightStill.gameObject);
-        }
+        DestroyAllPocketPalLayersByName("PandaVisual");
+        DestroyAllPocketPalLayersByName("PocketPalShadow");
+        DestroyAllPocketPalLayersByName("NighttimeStill");
 
         CreatePocketPalSprite(pocketPalTransform);
         ApplyNighttimePresentation(true);
+    }
+
+    private void DestroyAllPocketPalLayersByName(string layerName)
+    {
+        if (pocketPalTransform == null || string.IsNullOrEmpty(layerName))
+        {
+            return;
+        }
+
+        for (int index = pocketPalTransform.childCount - 1; index >= 0; index--)
+        {
+            Transform child = pocketPalTransform.GetChild(index);
+            if (child != null && child.name == layerName)
+            {
+                Destroy(child.gameObject);
+            }
+        }
     }
 
     private Transform FindCanvasChild(string childName)

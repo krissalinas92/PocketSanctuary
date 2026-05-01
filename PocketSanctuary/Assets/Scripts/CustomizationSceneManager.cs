@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections;
 using System.Collections.Generic;
 
 public class CustomizationSceneManager : MonoBehaviour
@@ -42,18 +43,41 @@ public class CustomizationSceneManager : MonoBehaviour
     private const string CheckInTaskId = "check_in";
     private const string AccessorizeTaskId = "accessorize_panda";
     private const string VisitShopTaskId = "visit_shop";
+    private const string CleanHabitatTaskId = "clean_habitat_7x";
+    private const int CleanHabitatTaskTargetCount = 7;
     private const float SleepSessionDurationSeconds = 480f;
     private const string StarterRewardId = "starter_coin_grant";
     private const string CareRewardId = "care_progress_bonus";
     private const string SanctuaryRewardId = "sanctuary_growth_bonus";
+    private const string AccessoryPurchaseLockSetupFlag = "qa_accessory_lock_setup_v1";
+    private const string AccessoryLockIconText = "🔒";
+    private const string ShopAssetsSheetResourcePath = "Sprites/Shop/shopassets";
+    private const string PandaPocketPalIconResourcePath = "Sprites/PocketPalIcons/pal_icon_panda";
+    private const string WhiteTigerPocketPalIconResourcePath = "Sprites/PocketPalIcons/pal_icon_white_tiger";
+    private const string OtterPocketPalIconResourcePath = "Sprites/PocketPalIcons/pal_icon_otter";
+    private const float CompactSelectorIconSize = 86f;
+    private const float CompactShopIconSize = 112f;
 
     [SerializeField] private float scrollBottomPadding = 160f;
 
     private TMP_Text pocketPalBodyText;
     private TMP_Text pocketPalStatsText;
+    private GameObject accessoryPurchaseDialogRoot;
+    private GameObject coinPurchaseDialogRoot;
+    private TMP_Text coinPurchaseDialogStatusText;
+    private bool coinPurchaseProcessing;
     private int pocketPalFeedCount;
     private bool compactDrawerMode;
     private static readonly Dictionary<string, Sprite> previewSpriteCache = new Dictionary<string, Sprite>();
+    private static readonly Dictionary<string, Sprite> coinPackSpriteCache = new Dictionary<string, Sprite>();
+    private static readonly Dictionary<string, Sprite> pocketPalIconSpriteCache = new Dictionary<string, Sprite>();
+    private static readonly string[] AccessoryLockSetupIds = new string[]
+    {
+        EyewearBlackSunglassesAccessoryId,
+        HeadwearBlueBeanieAccessoryId,
+        ShirtBluePawAccessoryId,
+        PropBluePawFlagAccessoryId
+    };
 
     private class PocketPalDefinition
     {
@@ -101,6 +125,26 @@ public class CustomizationSceneManager : MonoBehaviour
         }
     }
 
+    private class CoinPackDefinition
+    {
+        public string id;
+        public string name;
+        public string priceLabel;
+        public int coinReward;
+        public string placeholderShortLabel;
+        public Color placeholderColor;
+
+        public CoinPackDefinition(string id, string name, string priceLabel, int coinReward, string placeholderShortLabel, Color placeholderColor)
+        {
+            this.id = id;
+            this.name = name;
+            this.priceLabel = priceLabel;
+            this.coinReward = coinReward;
+            this.placeholderShortLabel = placeholderShortLabel;
+            this.placeholderColor = placeholderColor;
+        }
+    }
+
     private static readonly AccessoryDefinition[] AccessoryCatalog = new AccessoryDefinition[]
     {
         new AccessoryDefinition(EyewearRoundGlassesAccessoryId, "Eyewear", "Round glasses", "Classic round frames from your sprite pack.", 70),
@@ -129,6 +173,13 @@ public class CustomizationSceneManager : MonoBehaviour
         new AccessoryDefinition(PropGreenLeafFlagAccessoryId, "Handheld", "Green fish flag", "Carry a green fish flag.", 140),
         new AccessoryDefinition(PropPirateFlagAccessoryId, "Handheld", "Pirate flag", "Carry a pirate flag.", 155),
         new AccessoryDefinition(PropPandaFlagAccessoryId, "Handheld", "Mascot flag", "Carry a mascot flag for your current pal.", 145)
+    };
+
+    private static readonly CoinPackDefinition[] CoinPackCatalog = new CoinPackDefinition[]
+    {
+        new CoinPackDefinition("coin_pack_small", "Starter Pouch", "$4.99", 500, "SP", new Color(0.98f, 0.88f, 0.46f, 1f)),
+        new CoinPackDefinition("coin_pack_mid", "Garden Jar", "$16.99", 2200, "GJ", new Color(0.65f, 0.9f, 0.6f, 1f)),
+        new CoinPackDefinition("coin_pack_large", "Sanctuary Chest", "$34.99", 5000, "SC", new Color(0.66f, 0.82f, 0.98f, 1f))
     };
 
     private static readonly Dictionary<string, string> AccessorySpriteResourceNames = new Dictionary<string, string>
@@ -182,7 +233,53 @@ public class CustomizationSceneManager : MonoBehaviour
     private void Start()
     {
         SaveManager.EnsureLoaded();
+        ApplyAccessoryLockSetupForTesting();
         ConfigureScrollView();
+    }
+
+    private void ApplyAccessoryLockSetupForTesting()
+    {
+        if (SaveManager.Data == null)
+        {
+            return;
+        }
+
+        if (SaveManager.Data.completedTaskIds == null)
+        {
+            SaveManager.Data.completedTaskIds = new List<string>();
+        }
+
+        if (SaveManager.Data.completedTaskIds.Contains(AccessoryPurchaseLockSetupFlag))
+        {
+            return;
+        }
+
+        bool didChangeOwnership = false;
+        for (int index = 0; index < AccessoryLockSetupIds.Length; index++)
+        {
+            string accessoryId = AccessoryLockSetupIds[index];
+            if (SaveManager.Data.ownedAccessoryIds != null && SaveManager.Data.ownedAccessoryIds.Remove(accessoryId))
+            {
+                didChangeOwnership = true;
+            }
+
+            if (SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Remove(accessoryId))
+            {
+                didChangeOwnership = true;
+            }
+        }
+
+        SaveManager.Data.equippedAccessoryId = SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0
+            ? SaveManager.Data.equippedAccessoryIds[0]
+            : string.Empty;
+
+        if (didChangeOwnership)
+        {
+            RecalculatePocketPalLevelFromEquippedAccessories();
+        }
+
+        SaveManager.Data.completedTaskIds.Add(AccessoryPurchaseLockSetupFlag);
+        SaveManager.Save();
     }
 
     private void ConfigureScrollView()
@@ -346,14 +443,131 @@ public class CustomizationSceneManager : MonoBehaviour
         TMP_Text title = CreateText("CompactAccessoryTitle", mainContent, "Accessories", 30, FontStyles.Bold, TextAlignmentOptions.Left);
         title.color = new Color(0.08f, 0.18f, 0.22f);
 
-        TMP_Text subtitle = CreateText("CompactAccessorySubtitle", mainContent, "Tap an icon to equip.", 20, FontStyles.Normal, TextAlignmentOptions.Left);
+        TMP_Text subtitle = CreateText("CompactAccessorySubtitle", mainContent, "Pick your pal, then tap an icon to equip.", 20, FontStyles.Normal, TextAlignmentOptions.Left);
         subtitle.color = new Color(0.2f, 0.32f, 0.36f);
+
+        CreateCompactPocketPalSelector(mainContent);
 
         string[] accessoryCategories = new string[] { "Headwear", "Eyewear", "Shirts", "Handheld" };
         for (int index = 0; index < accessoryCategories.Length; index++)
         {
             CreateCompactAccessoryCategory(mainContent, accessoryCategories[index]);
         }
+    }
+
+    private void CreateCompactPocketPalSelector(Transform parent)
+    {
+        GameObject section = CreatePanel("CompactPocketPalSelector", parent, new Color(0.93f, 0.97f, 0.96f, 0.82f), 254f);
+        ConfigurePanelLayout(section, 16, 16, 14, 16, 10);
+
+        TMP_Text title = CreateText("CompactPocketPalSelectorTitle", section.transform, "PocketPals", 22, FontStyles.Bold, TextAlignmentOptions.Left);
+        title.color = new Color(0.08f, 0.18f, 0.22f);
+
+        GameObject rowObject = new GameObject("CompactPocketPalSelectorRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+        rowObject.transform.SetParent(section.transform, false);
+
+        HorizontalLayoutGroup rowLayout = rowObject.GetComponent<HorizontalLayoutGroup>();
+        rowLayout.spacing = 10f;
+        rowLayout.childAlignment = TextAnchor.MiddleCenter;
+        rowLayout.childControlWidth = true;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = true;
+        rowLayout.childForceExpandHeight = false;
+
+        LayoutElement rowElement = rowObject.GetComponent<LayoutElement>();
+        rowElement.preferredHeight = 156f;
+        rowElement.minHeight = 156f;
+
+        for (int index = 0; index < PocketPalCatalog.Length; index++)
+        {
+            CreateCompactPocketPalSelectorButton(rowObject.transform, PocketPalCatalog[index]);
+        }
+    }
+
+    private void CreateCompactPocketPalSelectorButton(Transform parent, PocketPalDefinition pocketPal)
+    {
+        bool isSelected = SaveManager.Data.selectedPocketPalId == pocketPal.id;
+        Color buttonColor = isSelected ? new Color(0.72f, 0.9f, 0.7f, 1f) : new Color(0.95f, 0.97f, 1f, 1f);
+
+        GameObject buttonObject = new GameObject(pocketPal.id + "CompactPalButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(parent, false);
+
+        Image buttonImage = buttonObject.GetComponent<Image>();
+        buttonImage.color = buttonColor;
+        buttonImage.raycastTarget = true;
+
+        LayoutElement buttonElement = buttonObject.GetComponent<LayoutElement>();
+        buttonElement.preferredHeight = 146f;
+        buttonElement.minHeight = 146f;
+        buttonElement.preferredWidth = 0f;
+        buttonElement.flexibleWidth = 1f;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = buttonImage;
+        button.onClick.AddListener(delegate { SelectPocketPal(pocketPal.id); });
+
+        VerticalLayoutGroup buttonLayout = buttonObject.AddComponent<VerticalLayoutGroup>();
+        buttonLayout.padding = new RectOffset(8, 8, 12, 10);
+        buttonLayout.spacing = 2f;
+        buttonLayout.childAlignment = TextAnchor.MiddleCenter;
+        buttonLayout.childControlWidth = true;
+        buttonLayout.childControlHeight = true;
+        buttonLayout.childForceExpandWidth = true;
+        buttonLayout.childForceExpandHeight = false;
+
+        GameObject iconObject = new GameObject(pocketPal.id + "CompactPalIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        iconObject.transform.SetParent(buttonObject.transform, false);
+        Image iconImage = iconObject.GetComponent<Image>();
+        iconImage.sprite = GetPocketPalSelectorSprite(pocketPal.id);
+        iconImage.preserveAspect = true;
+        iconImage.color = iconImage.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0.2f);
+        iconImage.raycastTarget = false;
+
+        LayoutElement iconLayout = iconObject.GetComponent<LayoutElement>();
+        iconLayout.preferredWidth = CompactSelectorIconSize;
+        iconLayout.preferredHeight = CompactSelectorIconSize;
+        iconLayout.minWidth = CompactSelectorIconSize;
+        iconLayout.minHeight = CompactSelectorIconSize;
+
+        TMP_Text nameLabel = CreateText(pocketPal.id + "CompactPalName", buttonObject.transform, pocketPal.name, 18, FontStyles.Bold, TextAlignmentOptions.Center);
+        nameLabel.color = new Color(0.08f, 0.18f, 0.22f);
+    }
+
+    private Sprite GetPocketPalSelectorSprite(string pocketPalId)
+    {
+        if (string.IsNullOrEmpty(pocketPalId))
+        {
+            return null;
+        }
+
+        if (pocketPalIconSpriteCache.ContainsKey(pocketPalId))
+        {
+            return pocketPalIconSpriteCache[pocketPalId];
+        }
+
+        Sprite sprite = TryCreateSpriteFromResource(GetPocketPalIconResourcePath(pocketPalId));
+        if (sprite == null && pocketPalId != "panda")
+        {
+            sprite = TryCreateSpriteFromResource(PandaPocketPalIconResourcePath);
+        }
+
+        pocketPalIconSpriteCache[pocketPalId] = sprite;
+        return sprite;
+    }
+
+    private string GetPocketPalIconResourcePath(string pocketPalId)
+    {
+        if (pocketPalId == "white_tiger")
+        {
+            return WhiteTigerPocketPalIconResourcePath;
+        }
+
+        if (pocketPalId == "otter")
+        {
+            return OtterPocketPalIconResourcePath;
+        }
+
+        return PandaPocketPalIconResourcePath;
     }
 
     private void CreateCompactAccessoryCategory(Transform parent, string categoryTitle)
@@ -415,11 +629,8 @@ public class CustomizationSceneManager : MonoBehaviour
 
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = backgroundImage;
-        button.interactable = isOwned;
-        if (isOwned)
-        {
-            button.onClick.AddListener(delegate { ToggleAccessory(accessory.id); });
-        }
+        button.interactable = true;
+        button.onClick.AddListener(delegate { HandleAccessoryIconClicked(accessory.id); });
 
         GameObject previewObject = new GameObject(accessory.id + "CompactPreview", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         previewObject.transform.SetParent(buttonObject.transform, false);
@@ -436,6 +647,11 @@ public class CustomizationSceneManager : MonoBehaviour
         previewImage.preserveAspect = true;
         previewImage.raycastTarget = false;
         previewImage.color = isOwned ? Color.white : new Color(1f, 1f, 1f, 0.32f);
+
+        if (!isOwned)
+        {
+            CreateLockedAccessoryOverlay(buttonObject.transform);
+        }
 
         GameObject statusObject = new GameObject(accessory.id + "CompactStatus", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         statusObject.transform.SetParent(buttonObject.transform, false);
@@ -466,6 +682,72 @@ public class CustomizationSceneManager : MonoBehaviour
         statusLabel.fontStyle = FontStyles.Bold;
         statusLabel.color = Color.white;
         statusLabel.raycastTarget = false;
+    }
+
+    private void HandleAccessoryIconClicked(string accessoryId)
+    {
+        if (IsAccessoryOwned(accessoryId))
+        {
+            ToggleAccessory(accessoryId);
+            return;
+        }
+
+        ShowAccessoryPurchaseDialog(accessoryId);
+    }
+
+    private void CreateLockedAccessoryOverlay(Transform parent)
+    {
+        GameObject dimObject = new GameObject("LockedDim", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        dimObject.transform.SetParent(parent, false);
+
+        RectTransform dimRect = dimObject.GetComponent<RectTransform>();
+        dimRect.anchorMin = Vector2.zero;
+        dimRect.anchorMax = Vector2.one;
+        dimRect.offsetMin = Vector2.zero;
+        dimRect.offsetMax = Vector2.zero;
+
+        Image dimImage = dimObject.GetComponent<Image>();
+        dimImage.color = new Color(0.08f, 0.1f, 0.12f, 0.25f);
+        dimImage.raycastTarget = false;
+
+        LayoutElement dimLayout = dimObject.GetComponent<LayoutElement>();
+        dimLayout.ignoreLayout = true;
+
+        GameObject iconBackingObject = new GameObject("LockedIconBacking", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        iconBackingObject.transform.SetParent(parent, false);
+
+        RectTransform iconBackingRect = iconBackingObject.GetComponent<RectTransform>();
+        iconBackingRect.anchorMin = new Vector2(0.5f, 0.5f);
+        iconBackingRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconBackingRect.pivot = new Vector2(0.5f, 0.5f);
+        iconBackingRect.sizeDelta = new Vector2(44f, 44f);
+        iconBackingRect.anchoredPosition = new Vector2(0f, 0f);
+
+        Image iconBackingImage = iconBackingObject.GetComponent<Image>();
+        iconBackingImage.color = new Color(0.11f, 0.13f, 0.18f, 0.82f);
+        iconBackingImage.raycastTarget = false;
+
+        LayoutElement iconLayout = iconBackingObject.GetComponent<LayoutElement>();
+        iconLayout.ignoreLayout = true;
+
+        GameObject iconTextObject = new GameObject("LockedIconText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
+        iconTextObject.transform.SetParent(iconBackingObject.transform, false);
+
+        RectTransform iconTextRect = iconTextObject.GetComponent<RectTransform>();
+        iconTextRect.anchorMin = Vector2.zero;
+        iconTextRect.anchorMax = Vector2.one;
+        iconTextRect.offsetMin = Vector2.zero;
+        iconTextRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI iconText = iconTextObject.GetComponent<TextMeshProUGUI>();
+        iconText.text = AccessoryLockIconText;
+        iconText.alignment = TextAlignmentOptions.Center;
+        iconText.fontSize = 24f;
+        iconText.color = new Color(1f, 1f, 1f, 0.95f);
+        iconText.raycastTarget = false;
+
+        LayoutElement iconTextLayout = iconTextObject.GetComponent<LayoutElement>();
+        iconTextLayout.ignoreLayout = true;
     }
 
     private float GetAccessoriesSectionHeight(string[] accessoryCategories)
@@ -541,26 +823,21 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void CreatePocketPalCard(PocketPalDefinition pocketPal, Transform parent)
     {
-        bool isOwned = IsPocketPalOwned(pocketPal.id);
         bool isSelected = SaveManager.Data.selectedPocketPalId == pocketPal.id;
-        Color cardColor = isSelected ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : isOwned ? new Color(0.94f, 0.97f, 0.98f, 0.95f) : new Color(0.88f, 0.9f, 0.92f, 0.78f);
+        Color cardColor = isSelected ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
         GameObject card = CreatePanel(pocketPal.id + "PocketPalCard", parent, cardColor, 126f);
 
-        if (isOwned)
-        {
-            Button button = card.AddComponent<Button>();
-            Image image = card.GetComponent<Image>();
-            image.raycastTarget = true;
-            button.interactable = true;
-            button.targetGraphic = image;
-            button.onClick.AddListener(delegate { SelectPocketPal(pocketPal.id); });
-        }
+        Button button = card.AddComponent<Button>();
+        Image image = card.GetComponent<Image>();
+        image.raycastTarget = true;
+        button.interactable = true;
+        button.targetGraphic = image;
+        button.onClick.AddListener(delegate { SelectPocketPal(pocketPal.id); });
 
         ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
 
-        string status = isSelected ? "Selected" : isOwned ? "Tap to use" : "Locked";
-        TMP_Text label = CreateText(pocketPal.id + "PocketPalLabel", card.transform, pocketPal.name + "\n" + pocketPal.description + "\n" + status, 25, FontStyles.Normal, TextAlignmentOptions.Left);
-        label.color = isOwned ? new Color(0.08f, 0.18f, 0.22f) : new Color(0.22f, 0.28f, 0.3f);
+        TMP_Text label = CreateText(pocketPal.id + "PocketPalLabel", card.transform, pocketPal.name + "\n" + pocketPal.description, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        label.color = new Color(0.08f, 0.18f, 0.22f);
     }
 
     private void CreateHabitatCard(HabitatDefinition habitat, Transform parent)
@@ -608,24 +885,26 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void CreateAccessoryCard(string objectName, Transform parent, string text, string accessoryId)
     {
+        bool isOwned = IsAccessoryOwned(accessoryId);
         bool isEquipped = IsAccessoryEquipped(accessoryId);
-        Color cardColor = isEquipped ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
+        Color cardColor = isEquipped
+            ? new Color(0.78f, 0.9f, 0.76f, 0.96f)
+            : isOwned
+                ? new Color(0.94f, 0.97f, 0.98f, 0.95f)
+                : new Color(0.86f, 0.88f, 0.9f, 0.93f);
         string category = GetAccessoryCategory(accessoryId);
         float cardHeight = category == "Shirts" || category == "Handheld" ? 212f : 168f;
         GameObject card = CreatePanel(objectName, parent, cardColor, cardHeight);
 
-        if (IsAccessoryOwned(accessoryId))
-        {
-            Button button = card.AddComponent<Button>();
-            Image image = card.GetComponent<Image>();
-            image.raycastTarget = true;
-            button.targetGraphic = image;
-            button.onClick.AddListener(delegate { ToggleAccessory(accessoryId); });
-        }
+        Button button = card.AddComponent<Button>();
+        Image image = card.GetComponent<Image>();
+        image.raycastTarget = true;
+        button.targetGraphic = image;
+        button.onClick.AddListener(delegate { HandleAccessoryIconClicked(accessoryId); });
 
         ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
 
-        CreateAccessoryPreview(card.transform, accessoryId, IsAccessoryOwned(accessoryId));
+        CreateAccessoryPreview(card.transform, accessoryId, isOwned);
 
         TMP_Text label = CreateText(objectName + "Label", card.transform, text, 25, FontStyles.Normal, TextAlignmentOptions.Left);
         label.color = new Color(0.08f, 0.18f, 0.22f);
@@ -643,7 +922,13 @@ public class CustomizationSceneManager : MonoBehaviour
             return "Owned";
         }
 
-        return "Locked";
+        AccessoryDefinition definition = GetAccessoryDefinition(accessoryId);
+        if (definition == null)
+        {
+            return "Locked";
+        }
+
+        return "Locked - " + definition.price + " coins";
     }
 
     private bool IsHabitatOwned(string habitatId)
@@ -670,9 +955,14 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void SelectPocketPal(string pocketPalId)
     {
-        if (!IsPocketPalOwned(pocketPalId))
+        if (SaveManager.Data.ownedPocketPalIds == null)
         {
-            return;
+            SaveManager.Data.ownedPocketPalIds = new List<string>();
+        }
+
+        if (!SaveManager.Data.ownedPocketPalIds.Contains(pocketPalId))
+        {
+            SaveManager.Data.ownedPocketPalIds.Add(pocketPalId);
         }
 
         if (!SaveManager.SetSelectedPocketPal(pocketPalId))
@@ -926,13 +1216,23 @@ public class CustomizationSceneManager : MonoBehaviour
     public void BuildTasksRewardsContent(RectTransform mainContent)
     {
         ClearChildren(mainContent);
+        SaveManager.EnsureDailyTaskClaimsForToday();
 
         if (!compactDrawerMode)
         {
             CreateTitle(mainContent, "Tasks & Rewards");
         }
 
-        float tasksPanelHeight = compactDrawerMode ? 980f : 860f;
+        const int compactTaskCardCount = 6;
+        const float compactTaskCardHeight = 208f;
+        const float compactTasksPanelSectionPadding = 40f; // top + bottom after compact padding adjustments
+        const float compactTasksPanelSpacing = 18f;
+        float tasksPanelHeight = compactDrawerMode
+            ? compactTasksPanelSectionPadding +
+              (compactTaskCardCount * compactTaskCardHeight) +
+              ((compactTaskCardCount - 1) * compactTasksPanelSpacing) +
+              16f
+            : 860f;
         GameObject tasksPanel = CreatePanel("TasksPanel", mainContent, new Color(0.86f, 0.95f, 1f, 0.84f), tasksPanelHeight);
         ConfigurePanelLayout(tasksPanel, 28, 28, 34, 34, compactDrawerMode ? 24f : 22f);
 
@@ -948,8 +1248,18 @@ public class CustomizationSceneManager : MonoBehaviour
         CreateTaskCard(tasksPanel.transform, FeedTaskId, "Feed your panda", "Feed your panda from the PocketPal screen.", 10, 14, SaveManager.Data.snacksFed > 0);
         CreateTaskCard(tasksPanel.transform, CheckInTaskId, "Check in today", "Open the game and visit your sanctuary.", 5, 10, true);
         CreateTaskCard(tasksPanel.transform, AccessorizeTaskId, "Accessorize your panda", "Equip any style item from customization.", 15, 18, SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0);
-        CreateTaskCard(tasksPanel.transform, VisitShopTaskId, "Visit the shop", "Browse the panda accessory shop.", 5, 12, SaveManager.Data.hasVisitedShop);
+        CreateTaskCard(tasksPanel.transform, VisitShopTaskId, "Visit the shop", "Browse the coin shop.", 5, 12, SaveManager.Data.hasVisitedShop);
         CreateTaskCard(tasksPanel.transform, SleepTaskId, "Sleep 8 hours", "Let your pocketpal sleep through one full night cycle.", 20, 24, SaveManager.GetSelectedPocketPalCompletedSleepSessions() > 0);
+        int habitatCleanCount = SaveManager.GetHabitatCleanCount();
+        int clampedHabitatCleanCount = Mathf.Clamp(habitatCleanCount, 0, CleanHabitatTaskTargetCount);
+        CreateTaskCard(
+            tasksPanel.transform,
+            CleanHabitatTaskId,
+            "Clean habitat x7",
+            "Pull random weeds from the sanctuary. Progress: " + clampedHabitatCleanCount + " / " + CleanHabitatTaskTargetCount + ".",
+            15,
+            14,
+            habitatCleanCount >= CleanHabitatTaskTargetCount);
 
         float rewardsPanelHeight = compactDrawerMode ? 860f : 680f;
         GameObject rewardsPanel = CreatePanel("RewardsPanel", mainContent, new Color(0.83f, 0.93f, 0.78f, 0.88f), rewardsPanelHeight);
@@ -1058,30 +1368,26 @@ public class CustomizationSceneManager : MonoBehaviour
     private void ClaimTaskReward(string taskId, int coinReward, int accountXpReward)
     {
         SaveManager.EnsureLoaded();
-
-        if (SaveManager.Data.completedTaskIds == null)
-        {
-            SaveManager.Data.completedTaskIds = new System.Collections.Generic.List<string>();
-        }
-
-        if (SaveManager.Data.completedTaskIds.Contains(taskId))
+        if (!SaveManager.TryMarkDailyTaskClaimed(taskId))
         {
             return;
         }
 
-        SaveManager.Data.completedTaskIds.Add(taskId);
         SaveManager.Data.coins += coinReward;
         SaveManager.Data.rewardProgress += coinReward;
         LevelingSystem.GrantAccountXp(accountXpReward);
-        LevelingSystem.GrantPocketPalXp(coinReward * 2);
-        LevelingSystem.GrantHabitatXp(coinReward);
+        if (taskId != CleanHabitatTaskId)
+        {
+            LevelingSystem.GrantPocketPalXp(coinReward * 2);
+            LevelingSystem.GrantHabitatXp(coinReward);
+        }
         SaveManager.Save();
         RefreshAfterSave(TasksRewardsSceneName);
     }
 
     private bool IsTaskComplete(string taskId)
     {
-        return SaveManager.Data.completedTaskIds != null && SaveManager.Data.completedTaskIds.Contains(taskId);
+        return SaveManager.IsDailyTaskClaimed(taskId);
     }
 
     private void CreateRewardCard(Transform parent, string rewardId, string title, string description, int requiredProgress, int coinReward)
@@ -1173,6 +1479,12 @@ public class CustomizationSceneManager : MonoBehaviour
         SaveManager.Data.hasVisitedShop = true;
         SaveManager.Save();
 
+        if (compactDrawerMode)
+        {
+            BuildCompactCoinShopContent(mainContent);
+            return;
+        }
+
         if (!compactDrawerMode)
         {
             CreateTitle(mainContent, "Shop");
@@ -1185,93 +1497,559 @@ public class CustomizationSceneManager : MonoBehaviour
             "Sanctuary chest - 1200 coins"
         });
 
-        float accessoryShopHeight = Mathf.Max(900f, 190f + AccessoryCatalog.Length * 166f);
-        GameObject accessoryShop = CreatePanel("AccessoryShopSection", mainContent, new Color(1f, 1f, 1f, 0.42f), accessoryShopHeight);
-        ConfigurePanelLayout(accessoryShop, 28, 28, 34, 34, 24);
-
-        if (!compactDrawerMode)
+        CreateSection(mainContent, "Accessory Unlocks", "Locked accessories are purchased from the Customize drawer.", 360f, new string[]
         {
-            TMP_Text shopTitle = CreateText("AccessoryShopTitle", accessoryShop.transform, GetSelectedPocketPalDisplayName() + " Accessories", 34, FontStyles.Bold, TextAlignmentOptions.Center);
-            shopTitle.color = new Color(0.08f, 0.18f, 0.22f);
+            "Open Customize",
+            "Tap a locked accessory",
+            "Confirm purchase and equip it from there"
+        });
+    }
 
-            TMP_Text shopSubtitle = CreateText("AccessoryShopSubtitle", accessoryShop.transform, "Buy unlocks for this pocketpal.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
-            shopSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
+    private void BuildCompactCoinShopContent(RectTransform mainContent)
+    {
+        GameObject section = CreatePanel("CompactCoinShopSection", mainContent, new Color(0.93f, 0.97f, 0.96f, 0.82f), 186f);
+        LayoutElement sectionLayout = section.GetComponent<LayoutElement>();
+        if (sectionLayout != null)
+        {
+            sectionLayout.flexibleHeight = 1f;
         }
 
-        for (int index = 0; index < AccessoryCatalog.Length; index++)
+        GameObject rowObject = new GameObject("CompactCoinShopRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        rowObject.transform.SetParent(section.transform, false);
+        RectTransform rowRect = rowObject.GetComponent<RectTransform>();
+        rowRect.anchorMin = new Vector2(0f, 1f);
+        rowRect.anchorMax = new Vector2(1f, 1f);
+        rowRect.pivot = new Vector2(0.5f, 1f);
+        rowRect.anchoredPosition = Vector2.zero;
+        rowRect.offsetMin = new Vector2(8f, -172f);
+        rowRect.offsetMax = new Vector2(-8f, -8f);
+
+        HorizontalLayoutGroup rowLayout = rowObject.GetComponent<HorizontalLayoutGroup>();
+        rowLayout.spacing = 8f;
+        rowLayout.childAlignment = TextAnchor.UpperCenter;
+        rowLayout.childControlWidth = true;
+        rowLayout.childControlHeight = true;
+        rowLayout.childForceExpandWidth = true;
+        rowLayout.childForceExpandHeight = false;
+
+        for (int index = 0; index < CoinPackCatalog.Length; index++)
         {
-            AccessoryDefinition accessory = AccessoryCatalog[index];
-            CreateShopItemCard(accessory.id + "ShopCard", accessoryShop.transform, accessory.id, accessory.name, accessory.price, accessory.description);
+            CreateCompactCoinPackCard(rowObject.transform, CoinPackCatalog[index]);
         }
     }
 
-    private void CreateShopItemCard(string objectName, Transform parent, string accessoryId, string itemName, int price, string description)
+    private void CreateCompactCoinPackCard(Transform parent, CoinPackDefinition pack)
     {
-        bool isOwned = IsAccessoryOwned(accessoryId);
-        bool canAfford = SaveManager.Data.coins >= price;
-        Color cardColor = isOwned ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
-
-        if (!isOwned && !canAfford)
+        string sanitizedPackName = pack.name.Replace(" ", "");
+        GameObject card = CreatePanel(sanitizedPackName + "CompactShopCard", parent, new Color(0.95f, 0.98f, 1f, 0.96f), 156f);
+        LayoutElement cardLayout = card.GetComponent<LayoutElement>();
+        if (cardLayout != null)
         {
-            cardColor = new Color(0.9f, 0.9f, 0.9f, 0.82f);
+            cardLayout.preferredWidth = 0f;
+            cardLayout.flexibleWidth = 1f;
+            cardLayout.flexibleHeight = 1f;
         }
 
-        string category = GetAccessoryCategory(accessoryId);
-        float cardHeight = category == "Shirts" || category == "Handheld" ? 220f : 172f;
-        GameObject card = CreatePanel(objectName, parent, cardColor, cardHeight);
+        Button button = card.AddComponent<Button>();
+        Image cardImage = card.GetComponent<Image>();
+        cardImage.raycastTarget = true;
+        button.targetGraphic = cardImage;
+        button.onClick.AddListener(delegate { ShowCoinPurchaseDialog(pack); });
 
-        if (!isOwned && canAfford)
+        HorizontalLayoutGroup layout = card.AddComponent<HorizontalLayoutGroup>();
+        layout.padding = new RectOffset(10, 10, 10, 10);
+        layout.spacing = 8f;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = false;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        GameObject placeholder = new GameObject(sanitizedPackName + "Placeholder", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        placeholder.transform.SetParent(card.transform, false);
+        Image placeholderImage = placeholder.GetComponent<Image>();
+        Sprite packSprite = GetCoinPackSprite(pack.id);
+        placeholderImage.sprite = packSprite;
+        placeholderImage.preserveAspect = true;
+        placeholderImage.color = packSprite != null ? Color.white : pack.placeholderColor;
+        placeholderImage.raycastTarget = false;
+        LayoutElement placeholderLayout = placeholder.GetComponent<LayoutElement>();
+        placeholderLayout.preferredWidth = CompactShopIconSize;
+        placeholderLayout.minWidth = CompactShopIconSize;
+        placeholderLayout.preferredHeight = CompactShopIconSize;
+        placeholderLayout.minHeight = CompactShopIconSize;
+
+        if (packSprite == null)
         {
-            Button button = card.AddComponent<Button>();
-            Image image = card.GetComponent<Image>();
-            image.raycastTarget = true;
-            button.targetGraphic = image;
-            button.onClick.AddListener(delegate { BuyAccessory(accessoryId, price); });
+            GameObject placeholderLabelObject = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            placeholderLabelObject.transform.SetParent(placeholder.transform, false);
+            RectTransform placeholderLabelRect = placeholderLabelObject.GetComponent<RectTransform>();
+            placeholderLabelRect.anchorMin = Vector2.zero;
+            placeholderLabelRect.anchorMax = Vector2.one;
+            placeholderLabelRect.offsetMin = Vector2.zero;
+            placeholderLabelRect.offsetMax = Vector2.zero;
+            TextMeshProUGUI placeholderLabel = placeholderLabelObject.GetComponent<TextMeshProUGUI>();
+            placeholderLabel.text = pack.placeholderShortLabel;
+            placeholderLabel.alignment = TextAlignmentOptions.Center;
+            placeholderLabel.fontSize = 14f;
+            placeholderLabel.fontStyle = FontStyles.Bold;
+            placeholderLabel.color = new Color(0.1f, 0.18f, 0.22f);
+            placeholderLabel.raycastTarget = false;
         }
 
-        ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
+        GameObject textGroup = new GameObject(sanitizedPackName + "TextGroup", typeof(RectTransform), typeof(LayoutElement));
+        textGroup.transform.SetParent(card.transform, false);
+        LayoutElement textGroupLayout = textGroup.GetComponent<LayoutElement>();
+        textGroupLayout.preferredWidth = 120f;
+        textGroupLayout.flexibleWidth = 1f;
 
-        CreateAccessoryPreview(card.transform, accessoryId, true);
+        GameObject cardTextObject = new GameObject(sanitizedPackName + "PackText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        cardTextObject.transform.SetParent(textGroup.transform, false);
+        RectTransform cardTextRect = cardTextObject.GetComponent<RectTransform>();
+        cardTextRect.anchorMin = Vector2.zero;
+        cardTextRect.anchorMax = Vector2.one;
+        cardTextRect.offsetMin = Vector2.zero;
+        cardTextRect.offsetMax = Vector2.zero;
 
-        string status = GetShopItemStatus(accessoryId, price);
-        string cardText = itemName + "\n" + description + "\n" + status;
-        TMP_Text label = CreateText(objectName + "Label", card.transform, cardText, 25, FontStyles.Normal, TextAlignmentOptions.Left);
-        label.color = new Color(0.08f, 0.18f, 0.22f);
+        TextMeshProUGUI cardText = cardTextObject.GetComponent<TextMeshProUGUI>();
+        cardText.text = pack.name + "\n" + pack.priceLabel;
+        cardText.alignment = TextAlignmentOptions.MidlineLeft;
+        cardText.fontSize = 17f;
+        cardText.fontStyle = FontStyles.Bold;
+        cardText.color = new Color(0.08f, 0.18f, 0.22f);
+        cardText.raycastTarget = false;
     }
 
-    private string GetShopItemStatus(string accessoryId, int price)
+    private Sprite GetCoinPackSprite(string packId)
     {
+        if (string.IsNullOrEmpty(packId))
+        {
+            return null;
+        }
+
+        if (coinPackSpriteCache.ContainsKey(packId))
+        {
+            return coinPackSpriteCache[packId];
+        }
+
+        Texture2D spriteSheet = LoadShopAssetsTexture();
+        if (spriteSheet == null)
+        {
+            coinPackSpriteCache[packId] = null;
+            return null;
+        }
+
+        int packIndex = GetCoinPackIndex(packId);
+        if (packIndex < 0)
+        {
+            coinPackSpriteCache[packId] = null;
+            return null;
+        }
+
+        int segments = Mathf.Max(1, CoinPackCatalog.Length);
+        int segmentWidth = Mathf.Max(1, spriteSheet.width / segments);
+        int insetX = Mathf.RoundToInt(segmentWidth * 0.02f);
+        int insetY = Mathf.RoundToInt(spriteSheet.height * 0.04f);
+        int x = Mathf.Clamp((packIndex * segmentWidth) + insetX, 0, spriteSheet.width - 1);
+        int y = Mathf.Clamp(insetY, 0, spriteSheet.height - 1);
+        int width = Mathf.Clamp(segmentWidth - (insetX * 2), 1, spriteSheet.width - x);
+        int height = Mathf.Clamp(spriteSheet.height - (insetY * 2), 1, spriteSheet.height - y);
+
+        Rect spriteRect = new Rect(x, y, width, height);
+        if (spriteSheet.isReadable)
+        {
+            try
+            {
+                Color[] segmentPixels = spriteSheet.GetPixels(x, y, width, height);
+                int minX = width;
+                int minY = height;
+                int maxX = -1;
+                int maxY = -1;
+
+                for (int pixelY = 0; pixelY < height; pixelY++)
+                {
+                    int rowOffset = pixelY * width;
+                    for (int pixelX = 0; pixelX < width; pixelX++)
+                    {
+                        if (segmentPixels[rowOffset + pixelX].a > 0.02f)
+                        {
+                            if (pixelX < minX)
+                            {
+                                minX = pixelX;
+                            }
+
+                            if (pixelY < minY)
+                            {
+                                minY = pixelY;
+                            }
+
+                            if (pixelX > maxX)
+                            {
+                                maxX = pixelX;
+                            }
+
+                            if (pixelY > maxY)
+                            {
+                                maxY = pixelY;
+                            }
+                        }
+                    }
+                }
+
+                if (maxX >= minX && maxY >= minY)
+                {
+                    const int trimPadding = 2;
+                    int trimmedX = Mathf.Max(x + minX - trimPadding, 0);
+                    int trimmedY = Mathf.Max(y + minY - trimPadding, 0);
+                    int trimmedMaxX = Mathf.Min(x + maxX + trimPadding, spriteSheet.width - 1);
+                    int trimmedMaxY = Mathf.Min(y + maxY + trimPadding, spriteSheet.height - 1);
+                    spriteRect = new Rect(
+                        trimmedX,
+                        trimmedY,
+                        Mathf.Max(1, (trimmedMaxX - trimmedX) + 1),
+                        Mathf.Max(1, (trimmedMaxY - trimmedY) + 1)
+                    );
+                }
+            }
+            catch (UnityException)
+            {
+                spriteRect = new Rect(x, y, width, height);
+            }
+        }
+
+        Sprite sprite = Sprite.Create(spriteSheet, spriteRect, new Vector2(0.5f, 0.5f), 100f);
+        coinPackSpriteCache[packId] = sprite;
+        return sprite;
+    }
+
+    private Texture2D LoadShopAssetsTexture()
+    {
+        Texture2D loadedTexture = Resources.Load<Texture2D>(ShopAssetsSheetResourcePath);
+        if (loadedTexture != null)
+        {
+            return loadedTexture;
+        }
+
+        Sprite loadedSprite = Resources.Load<Sprite>(ShopAssetsSheetResourcePath);
+        if (loadedSprite != null)
+        {
+            return loadedSprite.texture;
+        }
+
+        return null;
+    }
+
+    private int GetCoinPackIndex(string packId)
+    {
+        for (int index = 0; index < CoinPackCatalog.Length; index++)
+        {
+            if (CoinPackCatalog[index].id == packId)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private void ShowCoinPurchaseDialog(CoinPackDefinition pack)
+    {
+        if (pack == null)
+        {
+            return;
+        }
+
+        SaveManager.EnsureLoaded();
+        CloseCoinPurchaseDialog();
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        coinPurchaseDialogRoot = new GameObject("CoinPurchaseDialog", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        coinPurchaseDialogRoot.transform.SetParent(canvas.transform, false);
+        coinPurchaseDialogRoot.transform.SetAsLastSibling();
+
+        RectTransform rootRect = coinPurchaseDialogRoot.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+
+        Image rootImage = coinPurchaseDialogRoot.GetComponent<Image>();
+        rootImage.color = new Color(0f, 0f, 0f, 0.42f);
+        rootImage.raycastTarget = true;
+
+        Button closeOverlayButton = coinPurchaseDialogRoot.GetComponent<Button>();
+        closeOverlayButton.targetGraphic = rootImage;
+        closeOverlayButton.onClick.AddListener(TryCloseCoinPurchaseDialog);
+
+        GameObject dialogPanel = CreatePanel("CoinPurchaseDialogPanel", coinPurchaseDialogRoot.transform, new Color(0.96f, 0.97f, 1f, 0.99f), 300f);
+        RectTransform dialogRect = dialogPanel.GetComponent<RectTransform>();
+        dialogRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dialogRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dialogRect.pivot = new Vector2(0.5f, 0.5f);
+        dialogRect.sizeDelta = new Vector2(540f, 300f);
+        dialogRect.anchoredPosition = Vector2.zero;
+
+        ConfigurePanelLayout(dialogPanel, 24, 24, 20, 20, 10f);
+        CreateText("CoinPurchaseDialogTitle", dialogPanel.transform, "Confirm Purchase", 30f, FontStyles.Bold, TextAlignmentOptions.Center).color = new Color(0.08f, 0.18f, 0.22f);
+        CreateText(
+            "CoinPurchaseDialogBody",
+            dialogPanel.transform,
+            pack.name + "  " + pack.priceLabel + "\nYou'll receive +" + pack.coinReward + " coins.",
+            21f,
+            FontStyles.Normal,
+            TextAlignmentOptions.Center).color = new Color(0.12f, 0.24f, 0.3f);
+
+        coinPurchaseDialogStatusText = CreateText("CoinPurchaseDialogStatus", dialogPanel.transform, string.Empty, 20f, FontStyles.Bold, TextAlignmentOptions.Center);
+        coinPurchaseDialogStatusText.color = new Color(0.1f, 0.48f, 0.25f, 1f);
+
+        GameObject buttonsRow = new GameObject("CoinPurchaseDialogButtons", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+        buttonsRow.transform.SetParent(dialogPanel.transform, false);
+        LayoutElement buttonsLayout = buttonsRow.GetComponent<LayoutElement>();
+        buttonsLayout.preferredHeight = 82f;
+
+        HorizontalLayoutGroup buttonsGroup = buttonsRow.GetComponent<HorizontalLayoutGroup>();
+        buttonsGroup.spacing = 14f;
+        buttonsGroup.childAlignment = TextAnchor.MiddleCenter;
+        buttonsGroup.childControlWidth = true;
+        buttonsGroup.childControlHeight = true;
+        buttonsGroup.childForceExpandWidth = true;
+        buttonsGroup.childForceExpandHeight = false;
+
+        CreateDialogButton(buttonsRow.transform, "No", new Color(0.72f, 0.78f, 0.88f, 1f), TryCloseCoinPurchaseDialog, true);
+        CreateDialogButton(
+            buttonsRow.transform,
+            "Yes",
+            new Color(0.56f, 0.86f, 0.64f, 1f),
+            delegate { BeginCoinPurchase(pack); },
+            true);
+    }
+
+    private void BeginCoinPurchase(CoinPackDefinition pack)
+    {
+        if (pack == null || coinPurchaseProcessing)
+        {
+            return;
+        }
+
+        coinPurchaseProcessing = true;
+
+        if (coinPurchaseDialogRoot != null)
+        {
+            Button[] dialogButtons = coinPurchaseDialogRoot.GetComponentsInChildren<Button>(true);
+            for (int index = 0; index < dialogButtons.Length; index++)
+            {
+                if (dialogButtons[index] != null)
+                {
+                    dialogButtons[index].interactable = false;
+                }
+            }
+        }
+
+        if (coinPurchaseDialogStatusText != null)
+        {
+            coinPurchaseDialogStatusText.color = new Color(0.16f, 0.3f, 0.36f, 1f);
+            coinPurchaseDialogStatusText.text = "Processing...";
+        }
+
+        StartCoroutine(ProcessCoinPurchaseRoutine(pack));
+    }
+
+    private IEnumerator ProcessCoinPurchaseRoutine(CoinPackDefinition pack)
+    {
+        yield return new WaitForSeconds(1.1f);
+
+        SaveManager.EnsureLoaded();
+        SaveManager.Data.coins += pack.coinReward;
+        SaveManager.Save();
+
+        if (coinPurchaseDialogStatusText != null)
+        {
+            coinPurchaseDialogStatusText.color = new Color(0.1f, 0.48f, 0.25f, 1f);
+            coinPurchaseDialogStatusText.text = "Confirmed! +" + pack.coinReward + " coins";
+        }
+
+        yield return new WaitForSeconds(1.0f);
+
+        coinPurchaseProcessing = false;
+        CloseCoinPurchaseDialog();
+        RefreshAfterSave(ShopSceneName);
+    }
+
+    private void TryCloseCoinPurchaseDialog()
+    {
+        if (coinPurchaseProcessing)
+        {
+            return;
+        }
+
+        CloseCoinPurchaseDialog();
+    }
+
+    private void CloseCoinPurchaseDialog()
+    {
+        if (coinPurchaseDialogRoot != null)
+        {
+            Destroy(coinPurchaseDialogRoot);
+        }
+
+        coinPurchaseDialogRoot = null;
+        coinPurchaseDialogStatusText = null;
+        coinPurchaseProcessing = false;
+    }
+
+    private void ShowAccessoryPurchaseDialog(string accessoryId)
+    {
+        AccessoryDefinition accessory = GetAccessoryDefinition(accessoryId);
+        if (accessory == null)
+        {
+            return;
+        }
+
+        SaveManager.EnsureLoaded();
+        bool canAfford = SaveManager.Data.coins >= accessory.price;
+        string bodyText = canAfford
+            ? "Buy " + accessory.name + " for " + accessory.price + " coins?"
+            : accessory.name + " costs " + accessory.price + " coins.\nYou currently have " + SaveManager.Data.coins + " coins.";
+
+        CloseAccessoryPurchaseDialog();
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        accessoryPurchaseDialogRoot = new GameObject("AccessoryPurchaseDialog", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        accessoryPurchaseDialogRoot.transform.SetParent(canvas.transform, false);
+        accessoryPurchaseDialogRoot.transform.SetAsLastSibling();
+
+        RectTransform rootRect = accessoryPurchaseDialogRoot.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+
+        Image rootImage = accessoryPurchaseDialogRoot.GetComponent<Image>();
+        rootImage.color = new Color(0f, 0f, 0f, 0.4f);
+        rootImage.raycastTarget = true;
+
+        Button closeOverlayButton = accessoryPurchaseDialogRoot.GetComponent<Button>();
+        closeOverlayButton.targetGraphic = rootImage;
+        closeOverlayButton.onClick.AddListener(CloseAccessoryPurchaseDialog);
+
+        GameObject dialogPanel = CreatePanel("AccessoryPurchaseDialogPanel", accessoryPurchaseDialogRoot.transform, new Color(0.96f, 0.97f, 1f, 0.99f), 300f);
+        RectTransform dialogRect = dialogPanel.GetComponent<RectTransform>();
+        dialogRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dialogRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dialogRect.pivot = new Vector2(0.5f, 0.5f);
+        dialogRect.sizeDelta = new Vector2(520f, 300f);
+        dialogRect.anchoredPosition = Vector2.zero;
+
+        ConfigurePanelLayout(dialogPanel, 24, 24, 20, 20, 12f);
+        CreateText("AccessoryPurchaseDialogTitle", dialogPanel.transform, "Purchase Accessory", 30f, FontStyles.Bold, TextAlignmentOptions.Center).color = new Color(0.08f, 0.18f, 0.22f);
+        CreateText("AccessoryPurchaseDialogBody", dialogPanel.transform, bodyText, 22f, FontStyles.Normal, TextAlignmentOptions.Center).color = new Color(0.12f, 0.24f, 0.3f);
+
+        GameObject buttonsRow = new GameObject("AccessoryPurchaseDialogButtons", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+        buttonsRow.transform.SetParent(dialogPanel.transform, false);
+        LayoutElement buttonsLayout = buttonsRow.GetComponent<LayoutElement>();
+        buttonsLayout.preferredHeight = 88f;
+
+        HorizontalLayoutGroup buttonsGroup = buttonsRow.GetComponent<HorizontalLayoutGroup>();
+        buttonsGroup.spacing = 14f;
+        buttonsGroup.childAlignment = TextAnchor.MiddleCenter;
+        buttonsGroup.childControlWidth = true;
+        buttonsGroup.childControlHeight = true;
+        buttonsGroup.childForceExpandWidth = true;
+        buttonsGroup.childForceExpandHeight = false;
+
+        CreateDialogButton(buttonsRow.transform, "No", new Color(0.72f, 0.78f, 0.88f, 1f), CloseAccessoryPurchaseDialog, true);
+        CreateDialogButton(
+            buttonsRow.transform,
+            canAfford ? "Yes" : "Need Coins",
+            canAfford ? new Color(0.56f, 0.86f, 0.64f, 1f) : new Color(0.72f, 0.72f, 0.72f, 1f),
+            delegate { TryPurchaseLockedAccessory(accessory.id, accessory.price); },
+            canAfford);
+    }
+
+    private Button CreateDialogButton(Transform parent, string label, Color color, UnityEngine.Events.UnityAction onClick, bool interactable)
+    {
+        GameObject buttonObject = new GameObject(label + "DialogButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(parent, false);
+
+        Image buttonImage = buttonObject.GetComponent<Image>();
+        buttonImage.color = color;
+        buttonImage.raycastTarget = true;
+
+        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
+        layoutElement.preferredHeight = 72f;
+        layoutElement.minHeight = 72f;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = buttonImage;
+        button.interactable = interactable;
+        button.onClick.AddListener(onClick);
+
+        GameObject labelObject = new GameObject(label + "DialogButtonLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI labelText = labelObject.GetComponent<TextMeshProUGUI>();
+        labelText.text = label;
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.fontSize = 28f;
+        labelText.fontStyle = FontStyles.Bold;
+        labelText.color = new Color(0.08f, 0.16f, 0.22f, interactable ? 1f : 0.55f);
+        labelText.raycastTarget = false;
+
+        return button;
+    }
+
+    private void TryPurchaseLockedAccessory(string accessoryId, int price)
+    {
+        SaveManager.EnsureLoaded();
         if (IsAccessoryOwned(accessoryId))
         {
-            return "Owned";
+            CloseAccessoryPurchaseDialog();
+            return;
         }
 
         if (SaveManager.Data.coins < price)
         {
-            return price + " coins - need more coins";
-        }
-
-        return price + " coins - tap to buy";
-    }
-
-    private void BuyAccessory(string accessoryId, int price)
-    {
-        SaveManager.EnsureLoaded();
-
-        if (IsAccessoryOwned(accessoryId) || SaveManager.Data.coins < price)
-        {
+            CloseAccessoryPurchaseDialog();
             return;
         }
 
         SaveManager.Data.coins -= price;
         if (!SaveManager.AddOwnedAccessoryToSelectedPocketPal(accessoryId))
         {
+            CloseAccessoryPurchaseDialog();
             return;
         }
 
-        LevelingSystem.GrantPocketPalXp(GetAccessoryXpBonus(accessoryId));
         SaveManager.Save();
-        RefreshAfterSave(ShopSceneName);
+        CloseAccessoryPurchaseDialog();
+        RefreshAfterSave(CustomizationSceneName);
+    }
+
+    private void CloseAccessoryPurchaseDialog()
+    {
+        if (accessoryPurchaseDialogRoot == null)
+        {
+            return;
+        }
+
+        Destroy(accessoryPurchaseDialogRoot);
+        accessoryPurchaseDialogRoot = null;
     }
 
     private void BuildSettingsContent(RectTransform mainContent)
@@ -1349,21 +2127,24 @@ public class CustomizationSceneManager : MonoBehaviour
         ClearChildren(mainContent);
         pocketPalBodyText = null;
         pocketPalStatsText = null;
+        GameObject feedButton = CreateButton("FeedButton", mainContent, "Feed", FeedPocketPal, new Color(1f, 0.9f, 0.52f, 1f));
+        LayoutElement layoutElement = feedButton != null ? feedButton.GetComponent<LayoutElement>() : null;
+        if (layoutElement != null)
+        {
+            layoutElement.preferredWidth = 120f;
+            layoutElement.minWidth = 120f;
+            layoutElement.preferredHeight = 52f;
+            layoutElement.minHeight = 52f;
+            layoutElement.flexibleWidth = 0f;
+        }
 
-        string palNameText = GetSelectedPocketPalDisplayName();
-
-        TMP_Text title = CreateText("PocketPalOptionsTitle", mainContent, palNameText, 30, FontStyles.Bold, TextAlignmentOptions.Center);
-        title.color = new Color(0.08f, 0.18f, 0.22f);
-
-        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
-        pocketPalBodyText = CreateText("PocketPalOptionsStatus", mainContent, CreatePocketPalStatusText(), 22, FontStyles.Normal, TextAlignmentOptions.Center);
-        pocketPalBodyText.color = new Color(0.12f, 0.24f, 0.28f);
-
-        CreateButton("FeedButton", mainContent, "Feed", FeedPocketPal, new Color(1f, 0.9f, 0.52f, 1f));
-
-        TMP_Text stats = CreateText("PocketPalOptionsStats", mainContent, CreatePocketPalStatsSummary(), 21, FontStyles.Normal, TextAlignmentOptions.Left);
-        stats.color = new Color(0.12f, 0.24f, 0.28f);
-        pocketPalStatsText = stats;
+        TMP_Text feedLabel = feedButton != null ? feedButton.GetComponentInChildren<TextMeshProUGUI>() : null;
+        if (feedLabel != null)
+        {
+            feedLabel.fontSize = 22f;
+            feedLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            feedLabel.overflowMode = TextOverflowModes.Overflow;
+        }
     }
 
     private string CreateLevelProgressText()
@@ -1764,6 +2545,11 @@ public class CustomizationSceneManager : MonoBehaviour
             return Mathf.Max(preferredHeight, 168f);
         }
 
+        if (objectName.Contains("CompactShopCard"))
+        {
+            return preferredHeight;
+        }
+
         if (objectName.Contains("ShopCard") || objectName.Contains("Accessory") || objectName.Contains("Option"))
         {
             return Mathf.Max(preferredHeight, 160f);
@@ -1815,7 +2601,7 @@ public class CustomizationSceneManager : MonoBehaviour
         return label;
     }
 
-    private void CreateButton(string objectName, Transform parent, string label, UnityEngine.Events.UnityAction onClick, Color color)
+    private GameObject CreateButton(string objectName, Transform parent, string label, UnityEngine.Events.UnityAction onClick, Color color)
     {
         GameObject buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
         buttonObject.transform.SetParent(parent, false);
@@ -1842,6 +2628,8 @@ public class CustomizationSceneManager : MonoBehaviour
         labelTransform.anchorMax = Vector2.one;
         labelTransform.offsetMin = Vector2.zero;
         labelTransform.offsetMax = Vector2.zero;
+
+        return buttonObject;
     }
 
     private void PreserveExistingChildHeights(RectTransform parent)
@@ -1909,6 +2697,12 @@ public class CustomizationSceneManager : MonoBehaviour
         scrollRect.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, viewportHeight + 1f);
     }
 
+    private void OnDisable()
+    {
+        CloseAccessoryPurchaseDialog();
+        CloseCoinPurchaseDialog();
+    }
+
     public void GoBackToSanctuary()
     {
         SceneManager.LoadScene("SanctuaryScene", LoadSceneMode.Single);
@@ -1947,6 +2741,12 @@ public class CustomizationSceneManager : MonoBehaviour
         if (pocketPalStatsText != null)
         {
             pocketPalStatsText.text = CreatePocketPalStatsSummary();
+        }
+
+        SanctuaryUI sanctuaryUI = FindAnyObjectByType<SanctuaryUI>();
+        if (sanctuaryUI != null)
+        {
+            sanctuaryUI.PlayFeedReaction();
         }
 
         Debug.Log("PocketPal fed.");
