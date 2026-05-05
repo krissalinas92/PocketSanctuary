@@ -27,6 +27,7 @@ public class GameSaveData
     public bool soundEnabled = true;
     public bool notificationsEnabled = true;
     public bool hasVisitedShop = false;
+    public bool debugBackgroundOnlyMode = false;
 
     public List<string> ownedPocketPalIds = new List<string> { "panda" };
     public List<string> ownedAccessoryIds = new List<string>();

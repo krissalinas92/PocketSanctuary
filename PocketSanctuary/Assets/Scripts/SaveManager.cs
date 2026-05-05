@@ -254,6 +254,23 @@ public static class SaveManager
         return Mathf.Max(0, Data.habitatCleanCount);
     }
 
+    public static bool IsBackgroundOnlyDebugModeEnabled()
+    {
+        EnsureLoaded();
+        return Data != null && Data.debugBackgroundOnlyMode;
+    }
+
+    public static void SetBackgroundOnlyDebugMode(bool enabled)
+    {
+        EnsureLoaded();
+        if (Data == null)
+        {
+            return;
+        }
+
+        Data.debugBackgroundOnlyMode = enabled;
+    }
+
     public static int IncrementHabitatCleanCount(int amount = 1)
     {
         EnsureLoaded();
@@ -633,6 +650,12 @@ public static class SaveManager
         if (!Data.ownedHabitatIds.Contains("sunny_garden"))
         {
             Data.ownedHabitatIds.Add("sunny_garden");
+        }
+
+        // Testing convenience: keep the house unlocked for the default "user" profile only.
+        if (activeProfileId == DefaultProfileId && !Data.ownedHabitatIds.Contains("cozy_house"))
+        {
+            Data.ownedHabitatIds.Add("cozy_house");
         }
 
         if (!Data.ownedHabitatIds.Contains(Data.selectedHabitatId))

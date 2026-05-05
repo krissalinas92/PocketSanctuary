@@ -1,0 +1,8 @@
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/CMakeFiles/rebuild_cache.dir
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/GameActivity/CMakeFiles/game.dir
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/GameActivity/CMakeFiles/edit_cache.dir
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/GameActivity/CMakeFiles/rebuild_cache.dir
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/FramePacing/CMakeFiles/swappywrapper.dir
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/FramePacing/CMakeFiles/edit_cache.dir
+/Users/kris/Library/CloudStorage/OneDrive-Personal/Documents/NJIT/Spring 2026/CS388/Projects/PocketSanctuary/PocketSanctuary/.utmp/RelWithDebInfo/486s2x6e/arm64-v8a/FramePacing/CMakeFiles/rebuild_cache.dir

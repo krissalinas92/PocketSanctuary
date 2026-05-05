@@ -8,6 +8,8 @@ using UnityEngine.UI;
 public class SanctuaryUI : MonoBehaviour
 {
     private const string PocketPalButtonName = "PocketPalButton";
+    private const string CustomizationButtonName = "CustomizationButton";
+    private const string TasksRewardsButtonName = "TasksRewardsButton";
     private const string HabitatRootName = "Procedural3DHabitat";
     private const string HabitatViewName = "Habitat3DView";
     private const int PandaTextureSize = 256;
@@ -20,6 +22,8 @@ public class SanctuaryUI : MonoBehaviour
     private const string PandaNightSleepSpriteResourcePath = "Sprites/Sleeping/panda_sleep";
     private const string WhiteTigerNightSleepSpriteResourcePath = "Sprites/Sleeping/white_tiger_sleep";
     private const string OtterNightSleepSpriteResourcePath = "Sprites/Sleeping/otter_sleep";
+    private const string DaytimePermanentBackgroundResourcePath = "Sprites/Habitats/daytime";
+    private const string NighttimePermanentBackgroundResourcePath = "Sprites/Habitats/nighttime";
     private const string MoonlitHabitatId = "moonlit_pond";
     private const string CozyHouseHabitatId = "cozy_house";
     private const string CozyHouseLandmarkResourcePath = "Sprites/Habitats/house";
@@ -27,6 +31,10 @@ public class SanctuaryUI : MonoBehaviour
     private const int SleepSessionPocketPalXpReward = 30;
     private const int SleepSessionAccountXpReward = 10;
     private const float NightSleepSpriteGlobalYOffset = -120f;
+    // Species-specific eyewear tuning so otter glasses can be adjusted independently.
+    private const float OtterEyewearOffsetX = 0f;
+    private const float OtterEyewearOffsetY = 46f;
+    private const float OtterEyewearScaleMultiplier = 0.8f;
     private const float DrawerTopClearance = 122f;
     private const float DrawerBottomClearance = 138f;
     private const float DrawerSideMargin = 10f;
@@ -66,8 +74,8 @@ public class SanctuaryUI : MonoBehaviour
     [SerializeField] private float pocketPalPauseTime = 0.8f;
     [SerializeField] private Vector2 pocketPalAreaMin = new Vector2(-390f, -520f);
     [SerializeField] private Vector2 pocketPalAreaMax = new Vector2(390f, -70f);
-    [SerializeField] private Vector2 cozyHouseLandmarkSize = new Vector2(720f, 720f);
-    [SerializeField] private float cozyHouseLandmarkYOffset = 650f;
+    [SerializeField] private Vector2 cozyHouseLandmarkSize = new Vector2(780f, 780f);
+    [SerializeField] private float cozyHouseLandmarkYOffset = 700f;
 
     private RectTransform pocketPalTransform;
     private RectTransform pocketPalVisualTransform;
@@ -104,6 +112,8 @@ public class SanctuaryUI : MonoBehaviour
     private static Sprite pandaNightSleepSprite;
     private static Sprite whiteTigerNightSleepSprite;
     private static Sprite otterNightSleepSprite;
+    private static Sprite daytimePermanentBackgroundSprite;
+    private static Sprite nighttimePermanentBackgroundSprite;
     private static Sprite cozyHouseLandmarkSprite;
     private static readonly string[] EyewearAccessoryIds = new string[]
     {
@@ -194,6 +204,7 @@ public class SanctuaryUI : MonoBehaviour
     private float needsPenaltyTimer;
     private float needsAutosaveTimer;
     private bool hasPendingNeedsSave;
+    private bool backgroundOnlyDebugMode;
     private bool isPettingPointerDown;
     private bool pettingTriggeredThisPress;
     private bool suppressNextAnimalClick;
@@ -243,6 +254,7 @@ public class SanctuaryUI : MonoBehaviour
     private void Start()
     {
         SaveManager.EnsureLoaded();
+        backgroundOnlyDebugMode = SaveManager.IsBackgroundOnlyDebugModeEnabled();
         habitatPhaseTimer = 0f;
         isNightHabitatActive = false;
         BuildSanctuaryHome();
@@ -251,6 +263,7 @@ public class SanctuaryUI : MonoBehaviour
         InitializeHabitatMaintenance();
         ChooseNewPocketPalTarget();
         ApplyNighttimePresentation(true);
+        ApplyBackgroundOnlyDebugVisibility();
     }
 
     private void Update()
@@ -259,11 +272,14 @@ public class SanctuaryUI : MonoBehaviour
         ProcessStatDegradation(Time.deltaTime);
         UpdatePetting(Time.deltaTime);
         UpdateInteractionLocks(Time.deltaTime);
-        if (!isNightHabitatActive)
+        if (!isNightHabitatActive && !backgroundOnlyDebugMode)
         {
             MovePocketPal();
         }
-        UpdateHabitatMaintenance(Time.deltaTime);
+        if (!backgroundOnlyDebugMode)
+        {
+            UpdateHabitatMaintenance(Time.deltaTime);
+        }
         AnimateHabitatProps();
         AnimateDrawer();
         UpdateSleepMeterUI();
@@ -637,6 +653,16 @@ public class SanctuaryUI : MonoBehaviour
         ClearHabitatWeeds();
         ScheduleNextWeedSpawn();
 
+        if (backgroundOnlyDebugMode)
+        {
+            if (habitatWeedRoot != null)
+            {
+                habitatWeedRoot.gameObject.SetActive(false);
+            }
+
+            return;
+        }
+
         int initialWeedCount = Mathf.Clamp(InitialWeedSpawnCount + Random.Range(0, 2), 1, MaxActiveWeeds);
         for (int index = 0; index < initialWeedCount; index++)
         {
@@ -653,6 +679,11 @@ public class SanctuaryUI : MonoBehaviour
     private void UpdateHabitatMaintenance(float deltaTime)
     {
         if (deltaTime <= 0f)
+        {
+            return;
+        }
+
+        if (backgroundOnlyDebugMode)
         {
             return;
         }
@@ -773,6 +804,11 @@ public class SanctuaryUI : MonoBehaviour
 
     private bool TrySpawnHabitatWeed()
     {
+        if (backgroundOnlyDebugMode)
+        {
+            return false;
+        }
+
         if (habitatWeedRoot == null || weedSprites.Count == 0 || activeWeeds.Count >= MaxActiveWeeds)
         {
             return false;
@@ -1116,21 +1152,24 @@ public class SanctuaryUI : MonoBehaviour
 
         RectTransform visualTransform = pocketPalVisualTransform != null ? pocketPalVisualTransform : pocketPalTransform.Find("PandaVisual") as RectTransform;
         RectTransform shadowTransform = pocketPalShadowTransform != null ? pocketPalShadowTransform : pocketPalTransform.Find("PocketPalShadow") as RectTransform;
+        bool canShowPal = !backgroundOnlyDebugMode;
         if (visualTransform != null)
         {
-            visualTransform.gameObject.SetActive(!isNightHabitatActive);
+            visualTransform.gameObject.SetActive(canShowPal && !isNightHabitatActive);
         }
 
         if (shadowTransform != null)
         {
-            shadowTransform.gameObject.SetActive(!isNightHabitatActive);
+            shadowTransform.gameObject.SetActive(canShowPal && !isNightHabitatActive);
         }
 
         if (pocketPalNightStillTransform != null)
         {
-            bool canShowStill = isNightHabitatActive && pocketPalNightStillImage != null && pocketPalNightStillImage.sprite != null;
+            bool canShowStill = canShowPal && isNightHabitatActive && pocketPalNightStillImage != null && pocketPalNightStillImage.sprite != null;
             pocketPalNightStillTransform.gameObject.SetActive(canShowStill);
         }
+
+        pocketPalTransform.gameObject.SetActive(canShowPal);
     }
 
     private void EnsureNighttimeStillLayer()
@@ -1362,6 +1401,14 @@ public class SanctuaryUI : MonoBehaviour
         {
             return;
         }
+
+        if (backgroundOnlyDebugMode)
+        {
+            sleepMeterLabel.gameObject.SetActive(false);
+            return;
+        }
+
+        sleepMeterLabel.gameObject.SetActive(true);
 
         sleepMeterLabel.color = isNightHabitatActive ? NightStatsTextColor : DayStatsTextColor;
         sleepMeterLabel.richText = true;
@@ -1673,6 +1720,12 @@ public class SanctuaryUI : MonoBehaviour
 
     private void TogglePanel(PanelKind panelKind)
     {
+        if (backgroundOnlyDebugMode
+            && (panelKind == PanelKind.Customization || panelKind == PanelKind.TasksRewards || panelKind == PanelKind.PocketPal))
+        {
+            return;
+        }
+
         EnsureDrawerRoot();
 
         if (openPanel == panelKind)
@@ -1692,6 +1745,57 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         drawerAnimationTarget = 1f;
+    }
+
+    public void SetBackgroundOnlyDebugEnabled(bool enabled)
+    {
+        backgroundOnlyDebugMode = enabled;
+        if (backgroundOnlyDebugMode)
+        {
+            ClosePanel();
+            ClearHabitatWeeds();
+        }
+        else
+        {
+            InitializeHabitatMaintenance();
+        }
+
+        ApplyBackgroundOnlyDebugVisibility();
+        ApplyNighttimePresentation(true);
+    }
+
+    private void ApplyBackgroundOnlyDebugVisibility()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas != null)
+        {
+            Transform customizationButton = FindDescendant(canvas.transform, CustomizationButtonName);
+            if (customizationButton != null)
+            {
+                customizationButton.gameObject.SetActive(!backgroundOnlyDebugMode);
+            }
+
+            Transform tasksRewardsButton = FindDescendant(canvas.transform, TasksRewardsButtonName);
+            if (tasksRewardsButton != null)
+            {
+                tasksRewardsButton.gameObject.SetActive(!backgroundOnlyDebugMode);
+            }
+        }
+
+        if (habitatWeedRoot != null)
+        {
+            habitatWeedRoot.gameObject.SetActive(!backgroundOnlyDebugMode);
+        }
+
+        if (backgroundOnlyDebugMode)
+        {
+            ClearHabitatWeeds();
+        }
+
+        if (sleepMeterLabel != null)
+        {
+            sleepMeterLabel.gameObject.SetActive(!backgroundOnlyDebugMode);
+        }
     }
 
     private void OnDisable()
@@ -3029,6 +3133,13 @@ public class SanctuaryUI : MonoBehaviour
         float eyewearMultiplier = 0.84f;
         Vector2 eyewearFallbackSize = new Vector2(126f, 66f);
 
+        if (pocketPalId == "otter")
+        {
+            eyewearOffsetX = OtterEyewearOffsetX;
+            eyewearOffsetY = OtterEyewearOffsetY;
+            eyewearMultiplier = OtterEyewearScaleMultiplier;
+        }
+
         if (headwearId == "headwear_chef_hat" || headwearId == "headwear_crown" || headwearId == "headwear_straw_hat" || headwearId == "headwear_red_cap")
         {
           //  headwearOffsetX = 2f;
@@ -4094,6 +4205,34 @@ public class SanctuaryUI : MonoBehaviour
     private static Sprite GetHabitatBackgroundSprite(string habitatId)
     {
         string safeHabitatId = string.IsNullOrEmpty(habitatId) ? "sunny_garden" : habitatId;
+
+        if (safeHabitatId == MoonlitHabitatId)
+        {
+            if (nighttimePermanentBackgroundSprite == null)
+            {
+                nighttimePermanentBackgroundSprite = TryCreateSpriteFromResource(NighttimePermanentBackgroundResourcePath);
+            }
+
+            if (nighttimePermanentBackgroundSprite != null)
+            {
+                return nighttimePermanentBackgroundSprite;
+            }
+        }
+
+        // Use the user-provided daytime scene art as the permanent daytime sanctuary background.
+        if (safeHabitatId != MoonlitHabitatId)
+        {
+            if (daytimePermanentBackgroundSprite == null)
+            {
+                daytimePermanentBackgroundSprite = TryCreateSpriteFromResource(DaytimePermanentBackgroundResourcePath);
+            }
+
+            if (daytimePermanentBackgroundSprite != null)
+            {
+                return daytimePermanentBackgroundSprite;
+            }
+        }
+
         if (!habitatBackgroundSprites.ContainsKey(safeHabitatId))
         {
             Texture2D texture = CreateHabitatBackgroundTexture(safeHabitatId);

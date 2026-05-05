@@ -64,7 +64,7 @@ public class CustomizationSceneManager : MonoBehaviour
     private const int OtterUnlockLevel = 15;
     private const float SleepSessionDurationSeconds = 480f;
     private const string CozyHouseHabitatId = "cozy_house";
-    private const int CozyHouseHabitatCost = 500000;
+    private const int CozyHouseHabitatCost = 50000;
     private const int CozyHouseRequiredAccountLevel = 30;
     private const int CozyHouseRequiredPocketPalLevel = 60;
     private const string StarterRewardId = "starter_coin_grant";
@@ -1724,7 +1724,6 @@ public class CustomizationSceneManager : MonoBehaviour
         CreateProgressBar("PocketPalLevelProgressBar", levelPanel.transform, palProgress, new Color(0.52f, 0.8f, 1f, 1f));
 
         CreateLevelRewardCard(levelPanel.transform, "pal_level_2_treat", "PocketPal Treat Bundle", "Reach PocketPal level 2 to earn bonus coins.", 2, 1, 75, "", "");
-        CreateLevelRewardCard(levelPanel.transform, "habitat_level_2_bamboo", "Bamboo Habitat Kit", "Reach habitat level 2 to unlock a bamboo habitat reward.", 1, 2, 0, "bamboo_grove", "");
         CreateLevelRewardCard(levelPanel.transform, "pal_level_3_hat", "Level 3 Hat Reward", "Reach PocketPal level 3 to unlock the red cap.", 3, 1, 0, "", HeadwearRedCapAccessoryId);
     }
 
@@ -2649,6 +2648,7 @@ public class CustomizationSceneManager : MonoBehaviour
     {
         ClearChildren(mainContent);
         GameSaveData saveData = SaveManager.Data;
+        bool backgroundOnlyDebugEnabled = SaveManager.IsBackgroundOnlyDebugModeEnabled();
 
         CreateTitle(mainContent, "Settings");
         CreateSection(mainContent, "Account", "Signed in as " + saveData.username + ".", 560f, new string[]
@@ -2673,6 +2673,37 @@ public class CustomizationSceneManager : MonoBehaviour
             "Log out",
             "Delete account"
         });
+
+        string debugStateText = backgroundOnlyDebugEnabled ? "ON" : "OFF";
+        CreateSection(mainContent, "Debug", "Current background-only mode: " + debugStateText + ".", 440f, new string[]
+        {
+            "When enabled, Sanctuary hides the pal, Customize/Rewards buttons, and weeds."
+        });
+
+        string toggleLabel = backgroundOnlyDebugEnabled
+            ? "Disable Background-only Debug"
+            : "Enable Background-only Debug";
+        CreateButton(
+            "ToggleBackgroundOnlyDebugButton",
+            mainContent,
+            toggleLabel,
+            ToggleBackgroundOnlyDebugMode,
+            new Color(0.88f, 0.84f, 1f, 1f));
+    }
+
+    private void ToggleBackgroundOnlyDebugMode()
+    {
+        bool nextValue = !SaveManager.IsBackgroundOnlyDebugModeEnabled();
+        SaveManager.SetBackgroundOnlyDebugMode(nextValue);
+        SaveManager.Save();
+
+        SanctuaryUI sanctuaryUI = FindAnyObjectByType<SanctuaryUI>();
+        if (sanctuaryUI != null)
+        {
+            sanctuaryUI.SetBackgroundOnlyDebugEnabled(nextValue);
+        }
+
+        RefreshAfterSave(SettingsSceneName);
     }
 
     public void BuildPocketPalContent(RectTransform mainContent)
