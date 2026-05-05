@@ -18,7 +18,11 @@ public class SanctuaryUI : MonoBehaviour
     private const string WhiteTigerBaseSpriteResourcePath = "Sprites/Accessories/white_tiger_base_real";
     private const string OtterBaseSpriteResourcePath = "Sprites/Accessories/otter_base_real";
     private const string PandaNightSleepSpriteResourcePath = "Sprites/Sleeping/panda_sleep";
+    private const string WhiteTigerNightSleepSpriteResourcePath = "Sprites/Sleeping/white_tiger_sleep";
+    private const string OtterNightSleepSpriteResourcePath = "Sprites/Sleeping/otter_sleep";
     private const string MoonlitHabitatId = "moonlit_pond";
+    private const string CozyHouseHabitatId = "cozy_house";
+    private const string CozyHouseLandmarkResourcePath = "Sprites/Habitats/house";
     private const float HabitatPhaseDurationSeconds = 480f;
     private const int SleepSessionPocketPalXpReward = 30;
     private const int SleepSessionAccountXpReward = 10;
@@ -32,7 +36,7 @@ public class SanctuaryUI : MonoBehaviour
     private const float HungerDecayIntervalSeconds = 42f;
     private const float MoodDecayIntervalSeconds = 72f;
     private const float NeedsPenaltyIntervalSeconds = 28f;
-    private const float DaytimeSleepDrainPerSecond = 1f;
+    private const float DaytimeSleepDrainPerSecond = 0.35f;
     private const float NeedsAutosaveIntervalSeconds = 3f;
     private const int HungerDecayAmount = 1;
     private const int MoodDecayAmount = 1;
@@ -53,6 +57,8 @@ public class SanctuaryUI : MonoBehaviour
     private const float WeedSpawnMaxX = 470f;
     private const float WeedSpawnMinY = -620f;
     private const float WeedSpawnMaxY = -150f;
+    private const int LowStatThresholdPercent = 10;
+    private const string LowStatColorHex = "#FF4D5A";
     private static readonly Color DayStatsTextColor = new Color(0.12f, 0.2f, 0.28f, 1f);
     private static readonly Color NightStatsTextColor = new Color(0.92f, 0.96f, 1f, 1f);
 
@@ -60,6 +66,8 @@ public class SanctuaryUI : MonoBehaviour
     [SerializeField] private float pocketPalPauseTime = 0.8f;
     [SerializeField] private Vector2 pocketPalAreaMin = new Vector2(-390f, -520f);
     [SerializeField] private Vector2 pocketPalAreaMax = new Vector2(390f, -70f);
+    [SerializeField] private Vector2 cozyHouseLandmarkSize = new Vector2(720f, 720f);
+    [SerializeField] private float cozyHouseLandmarkYOffset = 650f;
 
     private RectTransform pocketPalTransform;
     private RectTransform pocketPalVisualTransform;
@@ -67,6 +75,8 @@ public class SanctuaryUI : MonoBehaviour
     private RectTransform pocketPalShadowTransform;
     private RectTransform pocketPalNightStillTransform;
     private Image pocketPalNightStillImage;
+    private RectTransform habitatLandmarkTransform;
+    private Image habitatLandmarkImage;
     private Transform playBallTransform;
     private Transform bambooMobileTransform;
     private Transform habitatPandaRoot;
@@ -92,6 +102,9 @@ public class SanctuaryUI : MonoBehaviour
     private static Sprite otterSprite;
     private static Sprite shadowSprite;
     private static Sprite pandaNightSleepSprite;
+    private static Sprite whiteTigerNightSleepSprite;
+    private static Sprite otterNightSleepSprite;
+    private static Sprite cozyHouseLandmarkSprite;
     private static readonly string[] EyewearAccessoryIds = new string[]
     {
         "eyewear_round_glasses",
@@ -371,7 +384,9 @@ public class SanctuaryUI : MonoBehaviour
             pettingMoodGainTimer -= PetMoodGainIntervalSeconds;
             pettingTriggeredThisPress = true;
             EmitAffectionHeart(1);
-            if (SaveManager.ModifySelectedPocketPalNeeds(0, PetMoodGainAmount))
+            bool didPet = SaveManager.IncrementSelectedPocketPalPetCount();
+            bool changedNeeds = SaveManager.ModifySelectedPocketPalNeeds(0, PetMoodGainAmount);
+            if (didPet || changedNeeds)
             {
                 MarkNeedsDirty();
             }
@@ -922,15 +937,84 @@ public class SanctuaryUI : MonoBehaviour
 
     private void ApplyHabitatBackground(Transform background)
     {
+        string activeHabitatId = GetActiveHabitatId();
         Image backgroundImage = background.GetComponent<Image>();
         if (backgroundImage != null)
         {
-            backgroundImage.sprite = GetHabitatBackgroundSprite(GetActiveHabitatId());
+            backgroundImage.sprite = GetHabitatBackgroundSprite(activeHabitatId);
             backgroundImage.color = Color.white;
             backgroundImage.type = Image.Type.Simple;
             backgroundImage.preserveAspect = false;
             backgroundImage.raycastTarget = false;
         }
+
+        UpdateHabitatLandmark(background, activeHabitatId);
+    }
+
+    private void UpdateHabitatLandmark(Transform background, string activeHabitatId)
+    {
+        if (background == null)
+        {
+            return;
+        }
+
+        bool showHouse = activeHabitatId == CozyHouseHabitatId;
+        if (!showHouse)
+        {
+            if (habitatLandmarkTransform != null)
+            {
+                habitatLandmarkTransform.gameObject.SetActive(false);
+            }
+
+            return;
+        }
+
+        if (cozyHouseLandmarkSprite == null)
+        {
+            cozyHouseLandmarkSprite = TryCreateSpriteFromResource(CozyHouseLandmarkResourcePath);
+        }
+
+        if (cozyHouseLandmarkSprite == null)
+        {
+            return;
+        }
+
+        if (habitatLandmarkTransform == null || habitatLandmarkImage == null || habitatLandmarkTransform.parent != background)
+        {
+            Transform existing = background.Find("HabitatLandmarkHouse");
+            GameObject houseObject = existing != null
+                ? existing.gameObject
+                : new GameObject("HabitatLandmarkHouse", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            houseObject.transform.SetParent(background, false);
+            houseObject.transform.SetAsFirstSibling();
+
+            habitatLandmarkTransform = houseObject.GetComponent<RectTransform>();
+            habitatLandmarkImage = houseObject.GetComponent<Image>();
+            habitatLandmarkImage.raycastTarget = false;
+            habitatLandmarkImage.preserveAspect = true;
+            habitatLandmarkImage.color = Color.white;
+        }
+
+        habitatLandmarkImage.sprite = cozyHouseLandmarkSprite;
+        habitatLandmarkTransform.anchorMin = new Vector2(0.5f, 0f);
+        habitatLandmarkTransform.anchorMax = new Vector2(0.5f, 0f);
+        habitatLandmarkTransform.pivot = new Vector2(0.5f, 0f);
+        habitatLandmarkTransform.anchoredPosition = new Vector2(0f, cozyHouseLandmarkYOffset);
+        habitatLandmarkTransform.sizeDelta = GetCozyHouseLandmarkSize();
+        habitatLandmarkTransform.gameObject.SetActive(true);
+    }
+
+    private Vector2 GetCozyHouseLandmarkSize()
+    {
+        float width = Mathf.Max(120f, cozyHouseLandmarkSize.x);
+        float height = Mathf.Max(120f, cozyHouseLandmarkSize.y);
+        return new Vector2(width, height);
+    }
+
+    public void SetCozyHouseLandmarkSize(float width, float height)
+    {
+        cozyHouseLandmarkSize = new Vector2(Mathf.Max(120f, width), Mathf.Max(120f, height));
+        RefreshHabitatBackground();
     }
 
     private string GetDaytimeHabitatId()
@@ -1020,13 +1104,18 @@ public class SanctuaryUI : MonoBehaviour
         if (refreshStillSprite && pocketPalNightStillImage != null)
         {
             Sprite stillSprite = GetNighttimeStillSprite();
+            if (stillSprite == null)
+            {
+                stillSprite = GetSelectedPocketPalSprite();
+            }
+
             pocketPalNightStillImage.sprite = stillSprite;
             pocketPalNightStillImage.enabled = stillSprite != null;
             ConfigureNighttimeStillLayout(stillSprite);
         }
 
-        Transform visualTransform = pocketPalTransform.Find("PandaVisual");
-        Transform shadowTransform = pocketPalTransform.Find("PocketPalShadow");
+        RectTransform visualTransform = pocketPalVisualTransform != null ? pocketPalVisualTransform : pocketPalTransform.Find("PandaVisual") as RectTransform;
+        RectTransform shadowTransform = pocketPalShadowTransform != null ? pocketPalShadowTransform : pocketPalTransform.Find("PocketPalShadow") as RectTransform;
         if (visualTransform != null)
         {
             visualTransform.gameObject.SetActive(!isNightHabitatActive);
@@ -1051,17 +1140,31 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
-        if (pocketPalNightStillTransform != null && pocketPalNightStillImage != null)
+        if (pocketPalNightStillTransform != null
+            && pocketPalNightStillImage != null
+            && pocketPalNightStillTransform.parent == pocketPalTransform)
         {
             return;
         }
 
+        pocketPalNightStillTransform = null;
+        pocketPalNightStillImage = null;
+
         Transform existingStill = pocketPalTransform.Find("NighttimeStill");
         if (existingStill != null)
         {
-            pocketPalNightStillTransform = existingStill.GetComponent<RectTransform>();
-            pocketPalNightStillImage = existingStill.GetComponent<Image>();
-            return;
+            RectTransform existingStillRect = existingStill.GetComponent<RectTransform>();
+            Image existingStillImage = existingStill.GetComponent<Image>();
+            if (existingStillRect != null && existingStillImage != null)
+            {
+                pocketPalNightStillTransform = existingStillRect;
+                pocketPalNightStillImage = existingStillImage;
+                return;
+            }
+
+            existingStill.gameObject.SetActive(false);
+            existingStill.SetParent(null, false);
+            Destroy(existingStill.gameObject);
         }
 
         GameObject stillObject = new GameObject("NighttimeStill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -1085,10 +1188,16 @@ public class SanctuaryUI : MonoBehaviour
     {
         if (SaveManager.Data == null)
         {
-            return pandaNightSleepSprite;
+            if (pandaNightSleepSprite == null)
+            {
+                pandaNightSleepSprite = TryCreateSpriteFromResource(PandaNightSleepSpriteResourcePath);
+            }
+
+            return pandaNightSleepSprite != null ? pandaNightSleepSprite : pandaSprite;
         }
 
-        if (SaveManager.Data.selectedPocketPalId == "panda")
+        string selectedPocketPalId = SaveManager.Data.selectedPocketPalId;
+        if (selectedPocketPalId == "panda")
         {
             if (pandaNightSleepSprite == null)
             {
@@ -1098,6 +1207,30 @@ public class SanctuaryUI : MonoBehaviour
             if (pandaNightSleepSprite != null)
             {
                 return pandaNightSleepSprite;
+            }
+        }
+        else if (selectedPocketPalId == "white_tiger")
+        {
+            if (whiteTigerNightSleepSprite == null)
+            {
+                whiteTigerNightSleepSprite = TryCreateSpriteFromResource(WhiteTigerNightSleepSpriteResourcePath);
+            }
+
+            if (whiteTigerNightSleepSprite != null)
+            {
+                return whiteTigerNightSleepSprite;
+            }
+        }
+        else if (selectedPocketPalId == "otter")
+        {
+            if (otterNightSleepSprite == null)
+            {
+                otterNightSleepSprite = TryCreateSpriteFromResource(OtterNightSleepSpriteResourcePath);
+            }
+
+            if (otterNightSleepSprite != null)
+            {
+                return otterNightSleepSprite;
             }
         }
 
@@ -1111,8 +1244,10 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
-        bool isPandaSleepingSprite = SaveManager.Data != null && SaveManager.Data.selectedPocketPalId == "panda" && stillSprite == pandaNightSleepSprite;
-        if (isPandaSleepingSprite)
+        bool isDedicatedSleepSprite = stillSprite == pandaNightSleepSprite
+            || stillSprite == whiteTigerNightSleepSprite
+            || stillSprite == otterNightSleepSprite;
+        if (isDedicatedSleepSprite)
         {
             pocketPalNightStillTransform.sizeDelta = new Vector2(300f, 300f);
             pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, NightSleepSpriteGlobalYOffset);
@@ -1229,6 +1364,7 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         sleepMeterLabel.color = isNightHabitatActive ? NightStatsTextColor : DayStatsTextColor;
+        sleepMeterLabel.richText = true;
 
         float sleepSeconds = SaveManager.GetSelectedPocketPalSleepSeconds();
         float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds) * 100f;
@@ -1237,14 +1373,32 @@ public class SanctuaryUI : MonoBehaviour
         int hunger = SaveManager.GetSelectedPocketPalHunger();
         int mood = SaveManager.GetSelectedPocketPalMood();
         int timesFed = SaveManager.GetSelectedPocketPalFeedCount();
+        int sleepProgressPercent = Mathf.FloorToInt(sleepProgress);
+        bool lowHunger = IsStatLow(hunger);
+        bool lowMood = IsStatLow(mood);
+        bool lowSleep = IsStatLow(sleepProgressPercent);
         sleepMeterLabel.text =
             palName + " stats" +
             "\nLv " + pocketPalLevel +
-            " | Hunger " + hunger + "/100" +
-            " | Mood " + mood + "/100" +
-            "\nSleep " + FormatDurationMmSs(sleepSeconds) + " / " + FormatDurationMmSs(HabitatPhaseDurationSeconds) +
-            " (" + Mathf.FloorToInt(sleepProgress) + "%)" +
+            " | " + FormatAlertStatText("Hunger " + hunger + "/100", lowHunger) +
+            " | " + FormatAlertStatText("Mood " + mood + "/100", lowMood) +
+            "\n" + FormatAlertStatText("Sleep " + FormatDurationMmSs(sleepSeconds) + " / " + FormatDurationMmSs(HabitatPhaseDurationSeconds) + " (" + sleepProgressPercent + "%)", lowSleep) +
             " | Fed " + timesFed;
+    }
+
+    private static bool IsStatLow(int currentPercentValue)
+    {
+        return currentPercentValue <= LowStatThresholdPercent;
+    }
+
+    private static string FormatAlertStatText(string text, bool isLow)
+    {
+        if (!isLow)
+        {
+            return text;
+        }
+
+        return "<color=" + LowStatColorHex + ">" + text + "</color>";
     }
 
     private static string FormatDurationMmSs(float totalSeconds)
@@ -2213,6 +2367,9 @@ public class SanctuaryUI : MonoBehaviour
             Transform child = pocketPalTransform.GetChild(index);
             if (child != null && child.name == layerName)
             {
+                // Hide and detach immediately so we never rebind to pending-destroy layers in this frame.
+                child.gameObject.SetActive(false);
+                child.SetParent(null, false);
                 Destroy(child.gameObject);
             }
         }
@@ -3305,10 +3462,321 @@ public class SanctuaryUI : MonoBehaviour
             return null;
         }
 
-        texture.wrapMode = TextureWrapMode.Clamp;
-        texture.filterMode = FilterMode.Bilinear;
-        Rect rect = new Rect(0f, 0f, texture.width, texture.height);
-        return Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f), 100f);
+        Texture2D spriteTexture = texture;
+        if (IsSleepSpriteResourcePath(resourcePath))
+        {
+            Texture2D cleanedSleepTexture = CreateSleepSpriteWithTransparentEdgeBackground(texture);
+            if (cleanedSleepTexture != null)
+            {
+                spriteTexture = cleanedSleepTexture;
+            }
+        }
+        else if (IsHabitatOverlayResourcePath(resourcePath))
+        {
+            Texture2D cleanedHabitatTexture = CreateHabitatSpriteWithTransparentEdgeBackground(texture);
+            if (cleanedHabitatTexture != null)
+            {
+                spriteTexture = cleanedHabitatTexture;
+            }
+        }
+
+        spriteTexture.wrapMode = TextureWrapMode.Clamp;
+        spriteTexture.filterMode = FilterMode.Bilinear;
+        Rect rect = new Rect(0f, 0f, spriteTexture.width, spriteTexture.height);
+        return Sprite.Create(spriteTexture, rect, new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    private static bool IsSleepSpriteResourcePath(string resourcePath)
+    {
+        return !string.IsNullOrEmpty(resourcePath) && resourcePath.StartsWith("Sprites/Sleeping/");
+    }
+
+    private static bool IsHabitatOverlayResourcePath(string resourcePath)
+    {
+        return !string.IsNullOrEmpty(resourcePath) && resourcePath.StartsWith("Sprites/Habitats/");
+    }
+
+    private static Texture2D CreateSleepSpriteWithTransparentEdgeBackground(Texture2D sourceTexture)
+    {
+        if (sourceTexture == null)
+        {
+            return null;
+        }
+
+        Texture2D readableTexture = TryCreateReadableTextureCopy(sourceTexture);
+        if (readableTexture == null)
+        {
+            return null;
+        }
+
+        int width = readableTexture.width;
+        int height = readableTexture.height;
+        Color[] pixels = readableTexture.GetPixels();
+        int pixelCount = pixels.Length;
+        bool[] visited = new bool[pixelCount];
+        Queue<int> queue = new Queue<int>(pixelCount / 8);
+        bool removedAnyBackground = false;
+
+        bool IsEdgeBackground(Color color)
+        {
+            if (color.a <= 0.01f)
+            {
+                return true;
+            }
+
+            float min = Mathf.Min(color.r, Mathf.Min(color.g, color.b));
+            float max = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
+            float saturation = max <= 0.0001f ? 0f : (max - min) / max;
+            return color.r >= 0.93f && color.g >= 0.93f && color.b >= 0.93f && saturation <= 0.12f;
+        }
+
+        void EnqueueIfBackground(int x, int y)
+        {
+            int pixelIndex = (y * width) + x;
+            if (visited[pixelIndex] || !IsEdgeBackground(pixels[pixelIndex]))
+            {
+                return;
+            }
+
+            visited[pixelIndex] = true;
+            queue.Enqueue(pixelIndex);
+        }
+
+        for (int x = 0; x < width; x++)
+        {
+            EnqueueIfBackground(x, 0);
+            EnqueueIfBackground(x, height - 1);
+        }
+
+        for (int y = 1; y < height - 1; y++)
+        {
+            EnqueueIfBackground(0, y);
+            EnqueueIfBackground(width - 1, y);
+        }
+
+        while (queue.Count > 0)
+        {
+            int pixelIndex = queue.Dequeue();
+            Color color = pixels[pixelIndex];
+            if (color.a > 0f)
+            {
+                color.a = 0f;
+                pixels[pixelIndex] = color;
+                removedAnyBackground = true;
+            }
+
+            int x = pixelIndex % width;
+            int y = pixelIndex / width;
+
+            if (x > 0)
+            {
+                EnqueueIfBackground(x - 1, y);
+            }
+
+            if (x < width - 1)
+            {
+                EnqueueIfBackground(x + 1, y);
+            }
+
+            if (y > 0)
+            {
+                EnqueueIfBackground(x, y - 1);
+            }
+
+            if (y < height - 1)
+            {
+                EnqueueIfBackground(x, y + 1);
+            }
+        }
+
+        if (!removedAnyBackground)
+        {
+            if (Application.isPlaying)
+            {
+                Destroy(readableTexture);
+            }
+            else
+            {
+                DestroyImmediate(readableTexture);
+            }
+
+            return sourceTexture;
+        }
+
+        Texture2D output = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        output.SetPixels(pixels);
+        output.Apply(false, false);
+        output.wrapMode = TextureWrapMode.Clamp;
+        output.filterMode = FilterMode.Bilinear;
+
+        if (Application.isPlaying)
+        {
+            Destroy(readableTexture);
+        }
+        else
+        {
+            DestroyImmediate(readableTexture);
+        }
+
+        return output;
+    }
+
+    private static Texture2D CreateHabitatSpriteWithTransparentEdgeBackground(Texture2D sourceTexture)
+    {
+        if (sourceTexture == null)
+        {
+            return null;
+        }
+
+        Texture2D readableTexture = TryCreateReadableTextureCopy(sourceTexture);
+        if (readableTexture == null)
+        {
+            return null;
+        }
+
+        int width = readableTexture.width;
+        int height = readableTexture.height;
+        Color[] pixels = readableTexture.GetPixels();
+        int pixelCount = pixels.Length;
+        bool[] visited = new bool[pixelCount];
+        Queue<int> queue = new Queue<int>(pixelCount / 8);
+        bool removedAnyBackground = false;
+
+        bool IsEdgeBackground(Color color)
+        {
+            if (color.a <= 0.01f)
+            {
+                return true;
+            }
+
+            float min = Mathf.Min(color.r, Mathf.Min(color.g, color.b));
+            float max = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
+            float saturation = max <= 0.0001f ? 0f : (max - min) / max;
+            float brightness = max;
+            return brightness >= 0.8f && saturation <= 0.16f;
+        }
+
+        void EnqueueIfBackground(int x, int y)
+        {
+            int pixelIndex = (y * width) + x;
+            if (visited[pixelIndex] || !IsEdgeBackground(pixels[pixelIndex]))
+            {
+                return;
+            }
+
+            visited[pixelIndex] = true;
+            queue.Enqueue(pixelIndex);
+        }
+
+        for (int x = 0; x < width; x++)
+        {
+            EnqueueIfBackground(x, 0);
+            EnqueueIfBackground(x, height - 1);
+        }
+
+        for (int y = 1; y < height - 1; y++)
+        {
+            EnqueueIfBackground(0, y);
+            EnqueueIfBackground(width - 1, y);
+        }
+
+        while (queue.Count > 0)
+        {
+            int pixelIndex = queue.Dequeue();
+            Color color = pixels[pixelIndex];
+            if (color.a > 0f)
+            {
+                color.a = 0f;
+                pixels[pixelIndex] = color;
+                removedAnyBackground = true;
+            }
+
+            int x = pixelIndex % width;
+            int y = pixelIndex / width;
+
+            if (x > 0)
+            {
+                EnqueueIfBackground(x - 1, y);
+            }
+
+            if (x < width - 1)
+            {
+                EnqueueIfBackground(x + 1, y);
+            }
+
+            if (y > 0)
+            {
+                EnqueueIfBackground(x, y - 1);
+            }
+
+            if (y < height - 1)
+            {
+                EnqueueIfBackground(x, y + 1);
+            }
+        }
+
+        if (!removedAnyBackground)
+        {
+            if (Application.isPlaying)
+            {
+                Destroy(readableTexture);
+            }
+            else
+            {
+                DestroyImmediate(readableTexture);
+            }
+
+            return sourceTexture;
+        }
+
+        Texture2D output = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        output.SetPixels(pixels);
+        output.Apply(false, false);
+        output.wrapMode = TextureWrapMode.Clamp;
+        output.filterMode = FilterMode.Bilinear;
+
+        if (Application.isPlaying)
+        {
+            Destroy(readableTexture);
+        }
+        else
+        {
+            DestroyImmediate(readableTexture);
+        }
+
+        return output;
+    }
+
+    private static Texture2D TryCreateReadableTextureCopy(Texture2D sourceTexture)
+    {
+        if (sourceTexture == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            Color[] directPixels = sourceTexture.GetPixels();
+            Texture2D directCopy = new Texture2D(sourceTexture.width, sourceTexture.height, TextureFormat.RGBA32, false);
+            directCopy.SetPixels(directPixels);
+            directCopy.Apply(false, false);
+            return directCopy;
+        }
+        catch
+        {
+            RenderTexture temporary = RenderTexture.GetTemporary(sourceTexture.width, sourceTexture.height, 0, RenderTextureFormat.ARGB32);
+            RenderTexture previous = RenderTexture.active;
+            Graphics.Blit(sourceTexture, temporary);
+            RenderTexture.active = temporary;
+
+            Texture2D readableCopy = new Texture2D(sourceTexture.width, sourceTexture.height, TextureFormat.RGBA32, false);
+            readableCopy.ReadPixels(new Rect(0f, 0f, sourceTexture.width, sourceTexture.height), 0, 0);
+            readableCopy.Apply(false, false);
+
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(temporary);
+            return readableCopy;
+        }
     }
 
     private Sprite GetSelectedPocketPalSprite()

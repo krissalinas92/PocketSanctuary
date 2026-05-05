@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class GameSaveData
 {
     public int saveVersion = 2;
-    public int coins = 5000;
+    public int coins = 0;
     public string username = "Player";
 
     public string selectedPocketPalId = "panda";
@@ -49,7 +49,8 @@ public class PocketPalProgressData
     public int hunger = 55;
     public int mood = 65;
     public int feedCount = 0;
-    public float sleepSeconds = 0f;
+    public int petCount = 0;
+    public float sleepSeconds = 480f;
     public int completedSleepSessions = 0;
     public List<string> ownedAccessoryIds = new List<string>();
     public List<string> equippedAccessoryIds = new List<string>();
@@ -58,7 +59,7 @@ public class PocketPalProgressData
 
 public static class LevelingSystem
 {
-    public const int MaxLevel = 10;
+    public const int MaxLevel = 100;
 
     public static void GrantPocketPalXp(int amount)
     {
@@ -94,7 +95,9 @@ public static class LevelingSystem
 
     public static int GetXpForNextLevel(int level)
     {
-        return 40 + ((level - 1) * 20);
+        int safeLevel = Math.Max(1, level);
+        // Keep high-level rewards achievable while still ramping slightly each level.
+        return 10 + (safeLevel - 1);
     }
 
     public static bool TryClaimLevelReward(string rewardId, int requiredPocketPalLevel, int requiredHabitatLevel)

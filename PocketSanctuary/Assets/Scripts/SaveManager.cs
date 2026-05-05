@@ -5,7 +5,10 @@ using UnityEngine;
 
 public static class SaveManager
 {
-    private const string SaveFileName = "save.json";
+    private const string LegacySaveFileName = "save.json";
+    private const string SaveProfilesDirectoryName = "SaveProfiles";
+    private const string ActiveProfilePrefsKey = "active_profile_id";
+    private const string DefaultProfileId = "user";
     private const int CurrentSaveVersion = 2;
     // Temporary QA mode for fit/visual validation across all content.
     private static readonly bool ForceUnlockAllContentForTesting = false;
@@ -19,7 +22,8 @@ public static class SaveManager
     {
         "sunny_garden",
         "moonlit_pond",
-        "bamboo_grove"
+        "bamboo_grove",
+        "cozy_house"
     };
     private static readonly string[] ValidAccessoryIds = new string[]
     {
@@ -50,34 +54,54 @@ public static class SaveManager
         "prop_pirate_flag",
         "prop_panda_flag"
     };
-    private static readonly string[] StarterAccessoryIds = new string[]
-    {
-        "eyewear_round_glasses",
-        "shirt_red_hoodie"
-    };
     private const int DefaultPocketPalHunger = 55;
     private const int DefaultPocketPalMood = 65;
+    private const float DefaultPocketPalSleepSeconds = 480f;
     private const int FeedHungerGain = 18;
     private const int FeedMoodGain = 10;
+    private const string WhiteTigerUnlockRewardId = "unlock_white_tiger_level_reward";
+    private const string OtterUnlockRewardId = "unlock_otter_level_reward";
+    private const int WhiteTigerUnlockCoinReward = 500;
+    private const int WhiteTigerUnlockAccountXpReward = 80;
+    private const int OtterUnlockCoinReward = 1000;
+    private const int OtterUnlockAccountXpReward = 160;
+    private static string activeProfileId = "";
 
     public static GameSaveData Data { get; private set; }
 
+    private static string SaveProfilesDirectoryPath
+    {
+        get { return Path.Combine(Application.persistentDataPath, SaveProfilesDirectoryName); }
+    }
+
+    private static string LegacySavePath
+    {
+        get { return Path.Combine(Application.persistentDataPath, LegacySaveFileName); }
+    }
+
     private static string SavePath
     {
-        get { return Path.Combine(Application.persistentDataPath, SaveFileName); }
+        get { return Path.Combine(SaveProfilesDirectoryPath, activeProfileId + ".json"); }
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Initialize()
     {
+        EnsureActiveProfileInitialized();
+        EnsureSaveDirectoryExists();
+        TryMigrateLegacySaveIfNeeded();
         Load();
     }
 
     public static void Load()
     {
+        EnsureActiveProfileInitialized();
+        EnsureSaveDirectoryExists();
+
         if (!File.Exists(SavePath))
         {
             Data = new GameSaveData();
+            Data.username = activeProfileId;
             Save();
             return;
         }
@@ -112,6 +136,7 @@ public static class SaveManager
     {
         EnsureLoaded();
         PersistSelectedPocketPalProgress();
+        EnsureSaveDirectoryExists();
 
         string json = JsonUtility.ToJson(Data, true);
         File.WriteAllText(SavePath, json);
@@ -134,6 +159,43 @@ public static class SaveManager
     public static string GetSavePath()
     {
         return SavePath;
+    }
+
+    public static string GetActiveProfileId()
+    {
+        EnsureActiveProfileInitialized();
+        return activeProfileId;
+    }
+
+    public static void SwitchToProfile(string profileName)
+    {
+        EnsureActiveProfileInitialized();
+
+        string requestedProfileName = string.IsNullOrWhiteSpace(profileName) ? DefaultProfileId : profileName.Trim();
+        string requestedProfileId = NormalizeProfileId(requestedProfileName);
+        if (string.IsNullOrEmpty(requestedProfileId))
+        {
+            requestedProfileId = DefaultProfileId;
+            requestedProfileName = DefaultProfileId;
+        }
+
+        if (Data != null && activeProfileId == requestedProfileId && Data.username == requestedProfileName)
+        {
+            return;
+        }
+
+        if (Data != null)
+        {
+            Save();
+        }
+
+        activeProfileId = requestedProfileId;
+        PlayerPrefs.SetString(ActiveProfilePrefsKey, activeProfileId);
+        PlayerPrefs.Save();
+
+        Load();
+        Data.username = requestedProfileName;
+        Save();
     }
 
     public static bool SetSelectedPocketPal(string pocketPalId)
@@ -302,6 +364,29 @@ public static class SaveManager
         PocketPalProgressData progress = GetSelectedPocketPalProgress();
         EnsurePocketPalNeedsInitialized(progress);
         return Mathf.Max(0, progress.feedCount);
+    }
+
+    public static int GetSelectedPocketPalPetCount()
+    {
+        EnsureLoaded();
+        PocketPalProgressData progress = GetSelectedPocketPalProgress();
+        EnsurePocketPalNeedsInitialized(progress);
+        return Mathf.Max(0, progress.petCount);
+    }
+
+    public static bool IncrementSelectedPocketPalPetCount(int amount = 1)
+    {
+        EnsureLoaded();
+
+        if (amount <= 0)
+        {
+            return false;
+        }
+
+        PocketPalProgressData progress = GetSelectedPocketPalProgress();
+        EnsurePocketPalNeedsInitialized(progress);
+        progress.petCount = Mathf.Max(0, progress.petCount) + amount;
+        return true;
     }
 
     public static void FeedSelectedPocketPal()
@@ -482,14 +567,9 @@ public static class SaveManager
             Data.ownedPocketPalIds.Add("panda");
         }
 
-        if (!Data.ownedPocketPalIds.Contains("white_tiger"))
+        if (!Data.ownedPocketPalIds.Contains(Data.selectedPocketPalId))
         {
-            Data.ownedPocketPalIds.Add("white_tiger");
-        }
-
-        if (!Data.ownedPocketPalIds.Contains("otter"))
-        {
-            Data.ownedPocketPalIds.Add("otter");
+            Data.selectedPocketPalId = "panda";
         }
 
         if (Data.accountLevel < 1)
@@ -509,6 +589,9 @@ public static class SaveManager
             Data.accountXp = 0;
         }
 
+        TryUnlockPocketPalByAccountLevel("white_tiger", 10, WhiteTigerUnlockRewardId, WhiteTigerUnlockCoinReward, WhiteTigerUnlockAccountXpReward);
+        TryUnlockPocketPalByAccountLevel("otter", 15, OtterUnlockRewardId, OtterUnlockCoinReward, OtterUnlockAccountXpReward);
+
         HashSet<string> validAccessoryIds = new HashSet<string>(ValidAccessoryIds);
         EnsurePocketPalProgressInitialized(validAccessoryIds);
         LoadSelectedPocketPalProgressIntoLegacyFields();
@@ -519,11 +602,6 @@ public static class SaveManager
         }
 
         Data.ownedAccessoryIds.RemoveAll(delegate (string accessoryId) { return !validAccessoryIds.Contains(accessoryId); });
-
-        for (int index = 0; index < StarterAccessoryIds.Length; index++)
-        {
-            EnsureOwnedAccessory(StarterAccessoryIds[index]);
-        }
 
         if (Data.equippedAccessoryIds == null)
         {
@@ -557,9 +635,9 @@ public static class SaveManager
             Data.ownedHabitatIds.Add("sunny_garden");
         }
 
-        if (!Data.ownedHabitatIds.Contains("moonlit_pond"))
+        if (!Data.ownedHabitatIds.Contains(Data.selectedHabitatId))
         {
-            Data.ownedHabitatIds.Add("moonlit_pond");
+            Data.selectedHabitatId = "sunny_garden";
         }
 
         if (Data.completedTaskIds == null)
@@ -629,19 +707,6 @@ public static class SaveManager
         return DateTime.Now.ToString("yyyy-MM-dd");
     }
 
-    private static void EnsureOwnedAccessory(string accessoryId)
-    {
-        if (Data.ownedAccessoryIds == null)
-        {
-            Data.ownedAccessoryIds = new List<string>();
-        }
-
-        if (!Data.ownedAccessoryIds.Contains(accessoryId))
-        {
-            Data.ownedAccessoryIds.Add(accessoryId);
-        }
-    }
-
     private static void EnsurePocketPalProgressInitialized(HashSet<string> validAccessoryIds)
     {
         if (Data.pocketPalProgress == null)
@@ -699,6 +764,11 @@ public static class SaveManager
             progress.feedCount = 0;
         }
 
+        if (progress.petCount < 0)
+        {
+            progress.petCount = 0;
+        }
+
         if (progress.sleepSeconds < 0f)
         {
             progress.sleepSeconds = 0f;
@@ -714,10 +784,49 @@ public static class SaveManager
         {
             progress.hunger = DefaultPocketPalHunger;
             progress.mood = DefaultPocketPalMood;
+            if (progress.completedSleepSessions == 0 && progress.sleepSeconds <= 0f)
+            {
+                progress.sleepSeconds = DefaultPocketPalSleepSeconds;
+            }
         }
 
         progress.hunger = Mathf.Clamp(progress.hunger, 0, 100);
         progress.mood = Mathf.Clamp(progress.mood, 0, 100);
+    }
+
+    private static void TryUnlockPocketPalByAccountLevel(string pocketPalId, int requiredLevel, string rewardId, int coinReward, int accountXpReward)
+    {
+        if (string.IsNullOrEmpty(pocketPalId) || Data.accountLevel < requiredLevel)
+        {
+            return;
+        }
+
+        if (Data.ownedPocketPalIds == null)
+        {
+            Data.ownedPocketPalIds = new List<string>();
+        }
+
+        if (Data.claimedLevelRewardIds == null)
+        {
+            Data.claimedLevelRewardIds = new List<string>();
+        }
+
+        bool newlyUnlocked = false;
+        if (!Data.ownedPocketPalIds.Contains(pocketPalId))
+        {
+            Data.ownedPocketPalIds.Add(pocketPalId);
+            newlyUnlocked = true;
+        }
+
+        if (!newlyUnlocked || Data.claimedLevelRewardIds.Contains(rewardId))
+        {
+            return;
+        }
+
+        Data.claimedLevelRewardIds.Add(rewardId);
+        Data.coins = Mathf.Max(0, Data.coins) + Mathf.Max(0, coinReward);
+        LevelingSystem.GrantAccountXp(Mathf.Max(0, accountXpReward));
+        Data.rewardProgress = Mathf.Max(0, Data.rewardProgress) + Mathf.Max(0, coinReward / 5);
     }
 
     private static void MigrateLegacySelectedPalState(PocketPalProgressData progress)
@@ -762,15 +871,6 @@ public static class SaveManager
         progress.ownedAccessoryIds.RemoveAll(delegate (string accessoryId) { return !validAccessoryIds.Contains(accessoryId); });
         progress.equippedAccessoryIds.RemoveAll(delegate (string accessoryId) { return !validAccessoryIds.Contains(accessoryId); });
 
-        for (int index = 0; index < StarterAccessoryIds.Length; index++)
-        {
-            string starterAccessoryId = StarterAccessoryIds[index];
-            if (!progress.ownedAccessoryIds.Contains(starterAccessoryId))
-            {
-                progress.ownedAccessoryIds.Add(starterAccessoryId);
-            }
-        }
-
         for (int index = progress.equippedAccessoryIds.Count - 1; index >= 0; index--)
         {
             string equippedAccessoryId = progress.equippedAccessoryIds[index];
@@ -795,11 +895,6 @@ public static class SaveManager
             if (progress.equippedAccessoryIds.Count > 0)
             {
                 progress.equippedAccessoryId = progress.equippedAccessoryIds[0];
-            }
-            else if (progress.ownedAccessoryIds.Contains("shirt_red_hoodie"))
-            {
-                progress.equippedAccessoryIds.Add("shirt_red_hoodie");
-                progress.equippedAccessoryId = "shirt_red_hoodie";
             }
         }
 
@@ -987,5 +1082,91 @@ public static class SaveManager
         {
             Data.selectedHabitatId = "sunny_garden";
         }
+    }
+
+    private static void EnsureActiveProfileInitialized()
+    {
+        if (!string.IsNullOrEmpty(activeProfileId))
+        {
+            return;
+        }
+
+        activeProfileId = NormalizeProfileId(PlayerPrefs.GetString(ActiveProfilePrefsKey, DefaultProfileId));
+        if (string.IsNullOrEmpty(activeProfileId))
+        {
+            activeProfileId = DefaultProfileId;
+        }
+    }
+
+    private static void EnsureSaveDirectoryExists()
+    {
+        if (!Directory.Exists(SaveProfilesDirectoryPath))
+        {
+            Directory.CreateDirectory(SaveProfilesDirectoryPath);
+        }
+    }
+
+    private static bool HasAnyProfileSaves()
+    {
+        if (!Directory.Exists(SaveProfilesDirectoryPath))
+        {
+            return false;
+        }
+
+        return Directory.GetFiles(SaveProfilesDirectoryPath, "*.json").Length > 0;
+    }
+
+    private static void TryMigrateLegacySaveIfNeeded()
+    {
+        if (!File.Exists(LegacySavePath) || HasAnyProfileSaves())
+        {
+            return;
+        }
+
+        try
+        {
+            string legacyJson = File.ReadAllText(LegacySavePath);
+            if (string.IsNullOrEmpty(legacyJson))
+            {
+                return;
+            }
+
+            GameSaveData legacyData = JsonUtility.FromJson<GameSaveData>(legacyJson);
+            if (legacyData != null && !string.IsNullOrWhiteSpace(legacyData.username))
+            {
+                activeProfileId = NormalizeProfileId(legacyData.username);
+                if (string.IsNullOrEmpty(activeProfileId))
+                {
+                    activeProfileId = DefaultProfileId;
+                }
+
+                PlayerPrefs.SetString(ActiveProfilePrefsKey, activeProfileId);
+                PlayerPrefs.Save();
+            }
+
+            File.WriteAllText(SavePath, legacyJson);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("Failed to migrate legacy save to profile-based save files. " + exception.Message);
+        }
+    }
+
+    private static string NormalizeProfileId(string profileName)
+    {
+        if (string.IsNullOrWhiteSpace(profileName))
+        {
+            return DefaultProfileId;
+        }
+
+        string trimmed = profileName.Trim().ToLowerInvariant();
+        char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
+        for (int index = 0; index < invalidFileNameChars.Length; index++)
+        {
+            trimmed = trimmed.Replace(invalidFileNameChars[index], '_');
+        }
+
+        trimmed = trimmed.Replace(' ', '_');
+        return string.IsNullOrEmpty(trimmed) ? DefaultProfileId : trimmed;
     }
 }

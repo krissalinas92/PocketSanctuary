@@ -42,16 +42,38 @@ public class CustomizationSceneManager : MonoBehaviour
     private const string SleepTaskId = "sleep_full_cycle";
     private const string CheckInTaskId = "check_in";
     private const string AccessorizeTaskId = "accessorize_panda";
-    private const string VisitShopTaskId = "visit_shop";
-    private const string CleanHabitatTaskId = "clean_habitat_7x";
-    private const int CleanHabitatTaskTargetCount = 7;
+    private const string PetPalTaskId = "pet_pal_10x";
+    private const string UnlockWhiteTigerTaskId = "unlock_white_tiger";
+    private const string UnlockOtterTaskId = "unlock_otter";
+    private const int PetPalTaskTargetCount = 10;
+    private const int PetPalTaskCoinReward = 20;
+    private const int PetPalTaskAccountXpReward = 26;
+    private const int UnlockWhiteTigerTaskCoinReward = 350;
+    private const int UnlockWhiteTigerTaskAccountXpReward = 100;
+    private const int UnlockOtterTaskCoinReward = 700;
+    private const int UnlockOtterTaskAccountXpReward = 200;
+    private const string CleanHabitatTask7Id = "clean_habitat_7x";
+    private const string CleanHabitatTask15Id = "clean_habitat_15x";
+    private const int CleanHabitatTask7TargetCount = 7;
+    private const int CleanHabitatTask15TargetCount = 15;
+    private const int CleanHabitatTask7CoinReward = 15;
+    private const int CleanHabitatTask7AccountXpReward = 14;
+    private const int CleanHabitatTask15CoinReward = CleanHabitatTask7CoinReward * 2;
+    private const int CleanHabitatTask15AccountXpReward = CleanHabitatTask7AccountXpReward * 2;
+    private const int WhiteTigerUnlockLevel = 10;
+    private const int OtterUnlockLevel = 15;
     private const float SleepSessionDurationSeconds = 480f;
+    private const string CozyHouseHabitatId = "cozy_house";
+    private const int CozyHouseHabitatCost = 500000;
+    private const int CozyHouseRequiredAccountLevel = 30;
+    private const int CozyHouseRequiredPocketPalLevel = 60;
     private const string StarterRewardId = "starter_coin_grant";
     private const string CareRewardId = "care_progress_bonus";
-    private const string SanctuaryRewardId = "sanctuary_growth_bonus";
+    private const string PettingRewardId = "petting_progress_bonus";
     private const string AccessoryPurchaseLockSetupFlag = "qa_accessory_lock_setup_v1";
     private const string AccessoryLockIconText = "🔒";
     private const string ShopAssetsSheetResourcePath = "Sprites/Shop/shopassets";
+    private const string HouseHabitatPreviewResourcePath = "Sprites/Habitats/house";
     private const string PandaPocketPalIconResourcePath = "Sprites/PocketPalIcons/pal_icon_panda";
     private const string WhiteTigerPocketPalIconResourcePath = "Sprites/PocketPalIcons/pal_icon_white_tiger";
     private const string OtterPocketPalIconResourcePath = "Sprites/PocketPalIcons/pal_icon_otter";
@@ -63,14 +85,17 @@ public class CustomizationSceneManager : MonoBehaviour
     private TMP_Text pocketPalBodyText;
     private TMP_Text pocketPalStatsText;
     private GameObject accessoryPurchaseDialogRoot;
+    private GameObject habitatPurchaseDialogRoot;
     private GameObject coinPurchaseDialogRoot;
     private TMP_Text coinPurchaseDialogStatusText;
     private bool coinPurchaseProcessing;
     private int pocketPalFeedCount;
     private bool compactDrawerMode;
+    private static Sprite lockBadgeSprite;
     private static readonly Dictionary<string, Sprite> previewSpriteCache = new Dictionary<string, Sprite>();
     private static readonly Dictionary<string, Sprite> coinPackSpriteCache = new Dictionary<string, Sprite>();
     private static readonly Dictionary<string, Sprite> pocketPalIconSpriteCache = new Dictionary<string, Sprite>();
+    private static readonly Dictionary<string, Sprite> habitatPreviewSpriteCache = new Dictionary<string, Sprite>();
     private static readonly string[] AccessoryLockSetupIds = new string[]
     {
         EyewearBlackSunglassesAccessoryId,
@@ -84,12 +109,14 @@ public class CustomizationSceneManager : MonoBehaviour
         public string id;
         public string name;
         public string description;
+        public int requiredAccountLevel;
 
-        public PocketPalDefinition(string id, string name, string description)
+        public PocketPalDefinition(string id, string name, string description, int requiredAccountLevel = 1)
         {
             this.id = id;
             this.name = name;
             this.description = description;
+            this.requiredAccountLevel = Mathf.Max(1, requiredAccountLevel);
         }
     }
 
@@ -98,12 +125,24 @@ public class CustomizationSceneManager : MonoBehaviour
         public string id;
         public string name;
         public string description;
+        public int coinCost;
+        public int requiredAccountLevel;
+        public int requiredPocketPalLevel;
 
-        public HabitatDefinition(string id, string name, string description)
+        public HabitatDefinition(
+            string id,
+            string name,
+            string description,
+            int coinCost = 0,
+            int requiredAccountLevel = 1,
+            int requiredPocketPalLevel = 1)
         {
             this.id = id;
             this.name = name;
             this.description = description;
+            this.coinCost = Mathf.Max(0, coinCost);
+            this.requiredAccountLevel = Mathf.Max(1, requiredAccountLevel);
+            this.requiredPocketPalLevel = Mathf.Max(1, requiredPocketPalLevel);
         }
     }
 
@@ -215,14 +254,21 @@ public class CustomizationSceneManager : MonoBehaviour
     private static readonly HabitatDefinition[] HabitatCatalog = new HabitatDefinition[]
     {
         new HabitatDefinition("sunny_garden", "Sunny Playpen", "Zoo habitat with trees, a swing, and a small playpen."),
-        new HabitatDefinition("bamboo_grove", "Bamboo Grove", "Reward habitat with extra bamboo shade.")
+        new HabitatDefinition("bamboo_grove", "Bamboo Grove", "Reward habitat with extra bamboo shade."),
+        new HabitatDefinition(
+            CozyHouseHabitatId,
+            "Cozy House",
+            "Final unlockable habitat with a woodland house in your sanctuary.",
+            CozyHouseHabitatCost,
+            CozyHouseRequiredAccountLevel,
+            CozyHouseRequiredPocketPalLevel)
     };
 
     private static readonly PocketPalDefinition[] PocketPalCatalog = new PocketPalDefinition[]
     {
         new PocketPalDefinition("panda", "Panda", "A cozy bamboo-loving starter pal."),
-        new PocketPalDefinition("white_tiger", "White Tiger", "A graceful striped cat with a calm stare."),
-        new PocketPalDefinition("otter", "Otter", "A playful river buddy that loves toys and naps.")
+        new PocketPalDefinition("white_tiger", "White Tiger", "A graceful striped cat with a calm stare.", WhiteTigerUnlockLevel),
+        new PocketPalDefinition("otter", "Otter", "A playful river buddy that loves toys and naps.", OtterUnlockLevel)
     };
 
     public void SetCompactDrawerMode(bool isCompact)
@@ -447,6 +493,7 @@ public class CustomizationSceneManager : MonoBehaviour
         subtitle.color = new Color(0.2f, 0.32f, 0.36f);
 
         CreateCompactPocketPalSelector(mainContent);
+        CreateCompactHabitatSelector(mainContent);
 
         string[] accessoryCategories = new string[] { "Headwear", "Eyewear", "Shirts", "Handheld" };
         for (int index = 0; index < accessoryCategories.Length; index++)
@@ -486,8 +533,14 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void CreateCompactPocketPalSelectorButton(Transform parent, PocketPalDefinition pocketPal)
     {
-        bool isSelected = SaveManager.Data.selectedPocketPalId == pocketPal.id;
-        Color buttonColor = isSelected ? new Color(0.72f, 0.9f, 0.7f, 1f) : new Color(0.95f, 0.97f, 1f, 1f);
+        bool isOwned = IsPocketPalOwned(pocketPal.id);
+        bool canUnlockNow = CanUnlockPocketPalNow(pocketPal);
+        bool isSelected = isOwned && SaveManager.Data.selectedPocketPalId == pocketPal.id;
+        Color buttonColor = isSelected
+            ? new Color(0.72f, 0.9f, 0.7f, 1f)
+            : isOwned
+                ? new Color(0.95f, 0.97f, 1f, 1f)
+                : new Color(0.86f, 0.88f, 0.9f, 0.92f);
 
         GameObject buttonObject = new GameObject(pocketPal.id + "CompactPalButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(LayoutElement));
         buttonObject.transform.SetParent(parent, false);
@@ -530,7 +583,167 @@ public class CustomizationSceneManager : MonoBehaviour
         iconLayout.minHeight = CompactSelectorIconSize;
 
         TMP_Text nameLabel = CreateText(pocketPal.id + "CompactPalName", buttonObject.transform, pocketPal.name, 18, FontStyles.Bold, TextAlignmentOptions.Center);
-        nameLabel.color = new Color(0.08f, 0.18f, 0.22f);
+        nameLabel.color = isOwned ? new Color(0.08f, 0.18f, 0.22f) : new Color(0.24f, 0.29f, 0.33f);
+
+        string statusText = isOwned ? (isSelected ? "Selected" : "Owned") : canUnlockNow ? "Tap to unlock" : "Unlocks at Lv " + pocketPal.requiredAccountLevel;
+        TMP_Text statusLabel = CreateText(pocketPal.id + "CompactPalStatus", buttonObject.transform, statusText, 14, FontStyles.Normal, TextAlignmentOptions.Center);
+        statusLabel.color = isOwned ? new Color(0.1f, 0.22f, 0.26f) : new Color(0.3f, 0.34f, 0.38f);
+
+        if (!isOwned)
+        {
+            GameObject lockObject = new GameObject(pocketPal.id + "CompactPalLock", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+            lockObject.transform.SetParent(buttonObject.transform, false);
+
+            RectTransform lockRect = lockObject.GetComponent<RectTransform>();
+            lockRect.anchorMin = new Vector2(1f, 1f);
+            lockRect.anchorMax = new Vector2(1f, 1f);
+            lockRect.pivot = new Vector2(1f, 1f);
+            lockRect.sizeDelta = new Vector2(28f, 28f);
+            lockRect.anchoredPosition = new Vector2(-8f, -8f);
+
+            Image lockImage = lockObject.GetComponent<Image>();
+            lockImage.sprite = GetLockBadgeSprite();
+            lockImage.preserveAspect = true;
+            lockImage.color = canUnlockNow ? new Color(1f, 0.95f, 0.28f, 1f) : Color.white;
+            lockImage.raycastTarget = false;
+
+            LayoutElement lockLayout = lockObject.GetComponent<LayoutElement>();
+            lockLayout.ignoreLayout = true;
+        }
+    }
+
+    private void CreateCompactHabitatSelector(Transform parent)
+    {
+        const float compactHomesCategoryHeight = 226f;
+        const float compactHomeCardHeight = 122f;
+
+        HabitatDefinition homeHabitat = GetHabitatDefinition(CozyHouseHabitatId);
+        if (homeHabitat == null)
+        {
+            return;
+        }
+
+        float panelHeight = compactHomesCategoryHeight;
+        GameObject section = CreatePanel("CompactHabitatSelector", parent, new Color(0.93f, 0.97f, 0.96f, 0.82f), panelHeight);
+        ConfigurePanelLayout(section, 16, 16, 14, 16, 10);
+
+        TMP_Text title = CreateText("CompactHabitatSelectorTitle", section.transform, "Homes", 22, FontStyles.Bold, TextAlignmentOptions.Left);
+        title.color = new Color(0.08f, 0.18f, 0.22f);
+
+        CreateCompactHabitatCard(section.transform, homeHabitat, compactHomeCardHeight);
+    }
+
+    private void CreateCompactHabitatCard(Transform parent, HabitatDefinition habitat, float cardHeight)
+    {
+        bool isOwned = IsHabitatOwned(habitat.id);
+        bool isSelected = SaveManager.Data.selectedHabitatId == habitat.id;
+        bool canUnlockNow = CanUnlockHabitatNow(habitat);
+        bool canAttemptUnlock = IsHabitatUnlockableByPurchase(habitat) && !isOwned;
+
+        Color cardColor = isSelected
+            ? new Color(0.72f, 0.9f, 0.7f, 0.96f)
+            : isOwned
+                ? new Color(0.96f, 0.98f, 1f, 0.96f)
+                : new Color(0.86f, 0.88f, 0.9f, 0.94f);
+
+        GameObject card = CreatePanel(habitat.id + "CompactHabitatCard", parent, cardColor, cardHeight);
+        HorizontalLayoutGroup cardLayout = card.AddComponent<HorizontalLayoutGroup>();
+        cardLayout.padding = new RectOffset(14, 14, 14, 12);
+        cardLayout.spacing = 12f;
+        cardLayout.childAlignment = TextAnchor.MiddleLeft;
+        cardLayout.childControlWidth = false;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = false;
+        cardLayout.childForceExpandHeight = false;
+
+        if (isOwned || canAttemptUnlock)
+        {
+            Button button = card.AddComponent<Button>();
+            Image image = card.GetComponent<Image>();
+            image.raycastTarget = true;
+            button.targetGraphic = image;
+            if (isOwned)
+            {
+                button.onClick.AddListener(delegate { SelectHabitat(habitat.id); });
+            }
+            else
+            {
+                button.onClick.AddListener(delegate { ShowHabitatPurchaseDialog(habitat); });
+            }
+        }
+
+        GameObject previewObject = new GameObject(habitat.id + "CompactHabitatPreview", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        previewObject.transform.SetParent(card.transform, false);
+        Image previewImage = previewObject.GetComponent<Image>();
+        previewImage.sprite = GetHabitatPreviewSprite(habitat.id);
+        previewImage.preserveAspect = true;
+        previewImage.raycastTarget = false;
+        previewImage.color = previewImage.sprite != null ? (isOwned ? Color.white : new Color(1f, 1f, 1f, 0.44f)) : new Color(1f, 1f, 1f, 0.22f);
+        LayoutElement previewLayout = previewObject.GetComponent<LayoutElement>();
+        previewLayout.preferredWidth = 72f;
+        previewLayout.minWidth = 72f;
+        previewLayout.preferredHeight = 72f;
+        previewLayout.minHeight = 72f;
+
+        GameObject textColumn = new GameObject(habitat.id + "CompactHabitatTextColumn", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+        textColumn.transform.SetParent(card.transform, false);
+        VerticalLayoutGroup textLayout = textColumn.GetComponent<VerticalLayoutGroup>();
+        textLayout.padding = new RectOffset(0, 0, 2, 0);
+        textLayout.spacing = 3f;
+        textLayout.childAlignment = TextAnchor.UpperLeft;
+        textLayout.childControlWidth = true;
+        textLayout.childControlHeight = true;
+        textLayout.childForceExpandWidth = true;
+        textLayout.childForceExpandHeight = false;
+        LayoutElement textColumnLayout = textColumn.GetComponent<LayoutElement>();
+        textColumnLayout.flexibleWidth = 1f;
+        textColumnLayout.preferredWidth = 0f;
+
+        TMP_Text homeName = CreateText(habitat.id + "CompactHabitatName", textColumn.transform, habitat.name, 20, FontStyles.Bold, TextAlignmentOptions.Left);
+        homeName.color = new Color(0.08f, 0.18f, 0.22f);
+
+        string statusText = GetHabitatStatusText(habitat, isOwned, isSelected);
+        TMP_Text statusLabel = CreateText(habitat.id + "CompactHabitatLabel", textColumn.transform, statusText, 17, FontStyles.Normal, TextAlignmentOptions.Left);
+        statusLabel.color = new Color(0.08f, 0.18f, 0.22f);
+
+        if (!isOwned)
+        {
+            GameObject badgeObject = new GameObject(habitat.id + "CompactHabitatLock", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+            badgeObject.transform.SetParent(card.transform, false);
+            RectTransform badgeRect = badgeObject.GetComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(1f, 0.5f);
+            badgeRect.anchorMax = new Vector2(1f, 0.5f);
+            badgeRect.pivot = new Vector2(1f, 0.5f);
+            badgeRect.sizeDelta = new Vector2(30f, 30f);
+            badgeRect.anchoredPosition = new Vector2(-4f, -2f);
+
+            Image badgeImage = badgeObject.GetComponent<Image>();
+            badgeImage.sprite = GetLockBadgeSprite();
+            badgeImage.preserveAspect = true;
+            badgeImage.color = canUnlockNow ? new Color(1f, 0.95f, 0.28f, 1f) : new Color(1f, 1f, 1f, 0.92f);
+            badgeImage.raycastTarget = false;
+
+            LayoutElement badgeLayout = badgeObject.GetComponent<LayoutElement>();
+            badgeLayout.ignoreLayout = true;
+        }
+    }
+
+    private Sprite GetHabitatPreviewSprite(string habitatId)
+    {
+        if (string.IsNullOrEmpty(habitatId))
+        {
+            return null;
+        }
+
+        if (habitatPreviewSpriteCache.ContainsKey(habitatId))
+        {
+            return habitatPreviewSpriteCache[habitatId];
+        }
+
+        string resourcePath = habitatId == CozyHouseHabitatId ? HouseHabitatPreviewResourcePath : string.Empty;
+        Sprite sprite = TryCreateSpriteFromResource(resourcePath);
+        habitatPreviewSpriteCache[habitatId] = sprite;
+        return sprite;
     }
 
     private Sprite GetPocketPalSelectorSprite(string pocketPalId)
@@ -667,6 +880,24 @@ public class CustomizationSceneManager : MonoBehaviour
         statusBackground.color = isEquipped ? new Color(0.18f, 0.66f, 0.32f, 0.95f) : isOwned ? new Color(0.18f, 0.36f, 0.74f, 0.88f) : new Color(0.36f, 0.36f, 0.36f, 0.75f);
         statusBackground.raycastTarget = false;
 
+        if (!isOwned)
+        {
+            GameObject statusIconObject = new GameObject(accessory.id + "CompactStatusLock", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            statusIconObject.transform.SetParent(statusObject.transform, false);
+            RectTransform statusIconRect = statusIconObject.GetComponent<RectTransform>();
+            statusIconRect.anchorMin = Vector2.zero;
+            statusIconRect.anchorMax = Vector2.one;
+            statusIconRect.offsetMin = new Vector2(4f, 4f);
+            statusIconRect.offsetMax = new Vector2(-4f, -4f);
+
+            Image statusIcon = statusIconObject.GetComponent<Image>();
+            statusIcon.sprite = GetLockBadgeSprite();
+            statusIcon.preserveAspect = true;
+            statusIcon.color = Color.white;
+            statusIcon.raycastTarget = false;
+            return;
+        }
+
         GameObject statusLabelObject = new GameObject(accessory.id + "CompactStatusLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         statusLabelObject.transform.SetParent(statusObject.transform, false);
         RectTransform statusLabelRect = statusLabelObject.GetComponent<RectTransform>();
@@ -676,7 +907,7 @@ public class CustomizationSceneManager : MonoBehaviour
         statusLabelRect.offsetMax = Vector2.zero;
 
         TextMeshProUGUI statusLabel = statusLabelObject.GetComponent<TextMeshProUGUI>();
-        statusLabel.text = isEquipped ? "E" : isOwned ? "O" : "L";
+        statusLabel.text = isEquipped ? "E" : "O";
         statusLabel.alignment = TextAlignmentOptions.Center;
         statusLabel.fontSize = 18f;
         statusLabel.fontStyle = FontStyles.Bold;
@@ -713,41 +944,61 @@ public class CustomizationSceneManager : MonoBehaviour
         LayoutElement dimLayout = dimObject.GetComponent<LayoutElement>();
         dimLayout.ignoreLayout = true;
 
-        GameObject iconBackingObject = new GameObject("LockedIconBacking", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
-        iconBackingObject.transform.SetParent(parent, false);
+        GameObject iconObject = new GameObject("LockedIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        iconObject.transform.SetParent(parent, false);
 
-        RectTransform iconBackingRect = iconBackingObject.GetComponent<RectTransform>();
-        iconBackingRect.anchorMin = new Vector2(0.5f, 0.5f);
-        iconBackingRect.anchorMax = new Vector2(0.5f, 0.5f);
-        iconBackingRect.pivot = new Vector2(0.5f, 0.5f);
-        iconBackingRect.sizeDelta = new Vector2(44f, 44f);
-        iconBackingRect.anchoredPosition = new Vector2(0f, 0f);
+        RectTransform iconRect = iconObject.GetComponent<RectTransform>();
+        iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+        iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRect.pivot = new Vector2(0.5f, 0.5f);
+        iconRect.sizeDelta = new Vector2(36f, 36f);
+        iconRect.anchoredPosition = new Vector2(0f, 0f);
 
-        Image iconBackingImage = iconBackingObject.GetComponent<Image>();
-        iconBackingImage.color = new Color(0.11f, 0.13f, 0.18f, 0.82f);
-        iconBackingImage.raycastTarget = false;
+        Image iconImage = iconObject.GetComponent<Image>();
+        iconImage.sprite = GetLockBadgeSprite();
+        iconImage.preserveAspect = true;
+        iconImage.color = new Color(1f, 1f, 1f, 0.98f);
+        iconImage.raycastTarget = false;
 
-        LayoutElement iconLayout = iconBackingObject.GetComponent<LayoutElement>();
+        LayoutElement iconLayout = iconObject.GetComponent<LayoutElement>();
         iconLayout.ignoreLayout = true;
+    }
 
-        GameObject iconTextObject = new GameObject("LockedIconText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
-        iconTextObject.transform.SetParent(iconBackingObject.transform, false);
+    private static Sprite GetLockBadgeSprite()
+    {
+        if (lockBadgeSprite != null)
+        {
+            return lockBadgeSprite;
+        }
 
-        RectTransform iconTextRect = iconTextObject.GetComponent<RectTransform>();
-        iconTextRect.anchorMin = Vector2.zero;
-        iconTextRect.anchorMax = Vector2.one;
-        iconTextRect.offsetMin = Vector2.zero;
-        iconTextRect.offsetMax = Vector2.zero;
+        lockBadgeSprite = CreateLockBadgeSprite();
+        return lockBadgeSprite;
+    }
 
-        TextMeshProUGUI iconText = iconTextObject.GetComponent<TextMeshProUGUI>();
-        iconText.text = AccessoryLockIconText;
-        iconText.alignment = TextAlignmentOptions.Center;
-        iconText.fontSize = 24f;
-        iconText.color = new Color(1f, 1f, 1f, 0.95f);
-        iconText.raycastTarget = false;
+    private static Sprite CreateLockBadgeSprite()
+    {
+        const int size = 64;
+        Texture2D texture = CreateTransparentTexture(size, size);
 
-        LayoutElement iconTextLayout = iconTextObject.GetComponent<LayoutElement>();
-        iconTextLayout.ignoreLayout = true;
+        Color shackleColor = new Color(0.25f, 0.2f, 0.16f, 1f);
+        Color bodyColor = new Color(1f, 0.86f, 0.2f, 1f);
+        Color bodyHighlight = new Color(1f, 0.92f, 0.36f, 1f);
+        Color keyholeColor = new Color(0.23f, 0.18f, 0.12f, 1f);
+
+        DrawEllipse(texture, 32, 44, 15, 13, shackleColor);
+        DrawEllipse(texture, 32, 44, 11, 9, Color.clear);
+
+        DrawRoundedRect(texture, 14, 12, 36, 30, 7, bodyColor);
+        DrawRoundedRect(texture, 18, 16, 28, 22, 5, bodyHighlight);
+
+        DrawEllipse(texture, 32, 28, 4, 5, keyholeColor);
+        DrawRoundedRect(texture, 30, 20, 4, 8, 1, keyholeColor);
+
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
     }
 
     private float GetAccessoriesSectionHeight(string[] accessoryCategories)
@@ -823,8 +1074,14 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void CreatePocketPalCard(PocketPalDefinition pocketPal, Transform parent)
     {
-        bool isSelected = SaveManager.Data.selectedPocketPalId == pocketPal.id;
-        Color cardColor = isSelected ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : new Color(0.94f, 0.97f, 0.98f, 0.95f);
+        bool isOwned = IsPocketPalOwned(pocketPal.id);
+        bool canUnlockNow = CanUnlockPocketPalNow(pocketPal);
+        bool isSelected = isOwned && SaveManager.Data.selectedPocketPalId == pocketPal.id;
+        Color cardColor = isSelected
+            ? new Color(0.78f, 0.9f, 0.76f, 0.96f)
+            : isOwned
+                ? new Color(0.94f, 0.97f, 0.98f, 0.95f)
+                : new Color(0.88f, 0.9f, 0.92f, 0.78f);
         GameObject card = CreatePanel(pocketPal.id + "PocketPalCard", parent, cardColor, 126f);
 
         Button button = card.AddComponent<Button>();
@@ -836,32 +1093,117 @@ public class CustomizationSceneManager : MonoBehaviour
 
         ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
 
-        TMP_Text label = CreateText(pocketPal.id + "PocketPalLabel", card.transform, pocketPal.name + "\n" + pocketPal.description, 25, FontStyles.Normal, TextAlignmentOptions.Left);
-        label.color = new Color(0.08f, 0.18f, 0.22f);
+        string statusText = isOwned ? (isSelected ? "Selected" : "Tap to use") : canUnlockNow ? "Tap to unlock" : "Unlocks at Lv " + pocketPal.requiredAccountLevel;
+        TMP_Text label = CreateText(pocketPal.id + "PocketPalLabel", card.transform, pocketPal.name + "\n" + pocketPal.description + "\n" + statusText, 25, FontStyles.Normal, TextAlignmentOptions.Left);
+        label.color = isOwned ? new Color(0.08f, 0.18f, 0.22f) : new Color(0.22f, 0.28f, 0.3f);
     }
 
     private void CreateHabitatCard(HabitatDefinition habitat, Transform parent)
     {
         bool isOwned = IsHabitatOwned(habitat.id);
         bool isSelected = SaveManager.Data.selectedHabitatId == habitat.id;
+        bool canAttemptUnlock = IsHabitatUnlockableByPurchase(habitat) && !isOwned;
         Color cardColor = isSelected ? new Color(0.78f, 0.9f, 0.76f, 0.96f) : isOwned ? new Color(0.94f, 0.97f, 0.98f, 0.95f) : new Color(0.88f, 0.9f, 0.92f, 0.78f);
         GameObject card = CreatePanel(habitat.id + "HabitatCard", parent, cardColor, 126f);
 
-        if (isOwned)
+        if (isOwned || canAttemptUnlock)
         {
             Button button = card.AddComponent<Button>();
             Image image = card.GetComponent<Image>();
             image.raycastTarget = true;
             button.interactable = true;
             button.targetGraphic = image;
-            button.onClick.AddListener(delegate { SelectHabitat(habitat.id); });
+            if (isOwned)
+            {
+                button.onClick.AddListener(delegate { SelectHabitat(habitat.id); });
+            }
+            else
+            {
+                button.onClick.AddListener(delegate { ShowHabitatPurchaseDialog(habitat); });
+            }
         }
 
         ConfigurePanelLayout(card, 24, 24, 20, 20, 8);
 
-        string status = isSelected ? "Selected" : isOwned ? "Tap to use" : "Locked";
+        string status = GetHabitatStatusText(habitat, isOwned, isSelected);
         TMP_Text label = CreateText(habitat.id + "HabitatLabel", card.transform, habitat.name + "\n" + habitat.description + "\n" + status, 25, FontStyles.Normal, TextAlignmentOptions.Left);
         label.color = isOwned ? new Color(0.08f, 0.18f, 0.22f) : new Color(0.22f, 0.28f, 0.3f);
+    }
+
+    private string GetHabitatStatusText(HabitatDefinition habitat, bool isOwned, bool isSelected)
+    {
+        if (isSelected)
+        {
+            return "Selected";
+        }
+
+        if (isOwned)
+        {
+            return "Tap to use";
+        }
+
+        if (!IsHabitatUnlockableByPurchase(habitat))
+        {
+            return "Locked";
+        }
+
+        if (!MeetsHabitatUnlockLevelRequirements(habitat))
+        {
+            return "Needs User Lv " + habitat.requiredAccountLevel + " + Pal Lv " + habitat.requiredPocketPalLevel;
+        }
+
+        if (!CanAffordHabitatUnlock(habitat))
+        {
+            return "Needs " + habitat.coinCost + " coins";
+        }
+
+        return "Tap to unlock - " + habitat.coinCost + " coins";
+    }
+
+    private bool IsHabitatUnlockableByPurchase(HabitatDefinition habitat)
+    {
+        return habitat != null && habitat.coinCost > 0;
+    }
+
+    private bool MeetsHabitatUnlockLevelRequirements(HabitatDefinition habitat)
+    {
+        if (habitat == null)
+        {
+            return false;
+        }
+
+        return SaveManager.GetAccountLevel() >= habitat.requiredAccountLevel &&
+               SaveManager.GetSelectedPocketPalLevel() >= habitat.requiredPocketPalLevel;
+    }
+
+    private bool CanAffordHabitatUnlock(HabitatDefinition habitat)
+    {
+        return habitat != null && SaveManager.Data != null && SaveManager.Data.coins >= habitat.coinCost;
+    }
+
+    private bool CanUnlockHabitatNow(HabitatDefinition habitat)
+    {
+        return IsHabitatUnlockableByPurchase(habitat) &&
+               MeetsHabitatUnlockLevelRequirements(habitat) &&
+               CanAffordHabitatUnlock(habitat);
+    }
+
+    private HabitatDefinition GetHabitatDefinition(string habitatId)
+    {
+        if (string.IsNullOrEmpty(habitatId))
+        {
+            return null;
+        }
+
+        for (int index = 0; index < HabitatCatalog.Length; index++)
+        {
+            if (HabitatCatalog[index].id == habitatId)
+            {
+                return HabitatCatalog[index];
+            }
+        }
+
+        return null;
     }
 
     private void CreateAccessoryCategory(Transform parent, string categoryTitle)
@@ -941,8 +1283,55 @@ public class CustomizationSceneManager : MonoBehaviour
         return SaveManager.Data.ownedPocketPalIds != null && SaveManager.Data.ownedPocketPalIds.Contains(pocketPalId);
     }
 
+    private PocketPalDefinition GetPocketPalDefinition(string pocketPalId)
+    {
+        for (int index = 0; index < PocketPalCatalog.Length; index++)
+        {
+            if (PocketPalCatalog[index].id == pocketPalId)
+            {
+                return PocketPalCatalog[index];
+            }
+        }
+
+        return null;
+    }
+
+    private bool CanUnlockPocketPalNow(PocketPalDefinition pocketPal)
+    {
+        if (pocketPal == null)
+        {
+            return false;
+        }
+
+        return SaveManager.GetAccountLevel() >= pocketPal.requiredAccountLevel;
+    }
+
+    private bool TryUnlockPocketPalByLevel(string pocketPalId)
+    {
+        if (IsPocketPalOwned(pocketPalId))
+        {
+            return true;
+        }
+
+        PocketPalDefinition pocketPal = GetPocketPalDefinition(pocketPalId);
+        if (pocketPal == null || !CanUnlockPocketPalNow(pocketPal))
+        {
+            return false;
+        }
+
+        if (SaveManager.Data.ownedPocketPalIds == null)
+        {
+            SaveManager.Data.ownedPocketPalIds = new List<string>();
+        }
+
+        SaveManager.Data.ownedPocketPalIds.Add(pocketPalId);
+        return true;
+    }
+
     private void SelectHabitat(string habitatId)
     {
+        SaveManager.EnsureLoaded();
+
         if (!IsHabitatOwned(habitatId))
         {
             return;
@@ -955,14 +1344,10 @@ public class CustomizationSceneManager : MonoBehaviour
 
     private void SelectPocketPal(string pocketPalId)
     {
-        if (SaveManager.Data.ownedPocketPalIds == null)
+        SaveManager.EnsureLoaded();
+        if (!TryUnlockPocketPalByLevel(pocketPalId))
         {
-            SaveManager.Data.ownedPocketPalIds = new List<string>();
-        }
-
-        if (!SaveManager.Data.ownedPocketPalIds.Contains(pocketPalId))
-        {
-            SaveManager.Data.ownedPocketPalIds.Add(pocketPalId);
+            return;
         }
 
         if (!SaveManager.SetSelectedPocketPal(pocketPalId))
@@ -1223,7 +1608,7 @@ public class CustomizationSceneManager : MonoBehaviour
             CreateTitle(mainContent, "Tasks & Rewards");
         }
 
-        const int compactTaskCardCount = 6;
+        const int compactTaskCardCount = 9;
         const float compactTaskCardHeight = 208f;
         const float compactTasksPanelSectionPadding = 40f; // top + bottom after compact padding adjustments
         const float compactTasksPanelSpacing = 18f;
@@ -1248,18 +1633,52 @@ public class CustomizationSceneManager : MonoBehaviour
         CreateTaskCard(tasksPanel.transform, FeedTaskId, "Feed your panda", "Feed your panda from the PocketPal screen.", 10, 14, SaveManager.Data.snacksFed > 0);
         CreateTaskCard(tasksPanel.transform, CheckInTaskId, "Check in today", "Open the game and visit your sanctuary.", 5, 10, true);
         CreateTaskCard(tasksPanel.transform, AccessorizeTaskId, "Accessorize your panda", "Equip any style item from customization.", 15, 18, SaveManager.Data.equippedAccessoryIds != null && SaveManager.Data.equippedAccessoryIds.Count > 0);
-        CreateTaskCard(tasksPanel.transform, VisitShopTaskId, "Visit the shop", "Browse the coin shop.", 5, 12, SaveManager.Data.hasVisitedShop);
-        CreateTaskCard(tasksPanel.transform, SleepTaskId, "Sleep 8 hours", "Let your pocketpal sleep through one full night cycle.", 20, 24, SaveManager.GetSelectedPocketPalCompletedSleepSessions() > 0);
-        int habitatCleanCount = SaveManager.GetHabitatCleanCount();
-        int clampedHabitatCleanCount = Mathf.Clamp(habitatCleanCount, 0, CleanHabitatTaskTargetCount);
+        int petCount = SaveManager.GetSelectedPocketPalPetCount();
+        int clampedPetCount = Mathf.Clamp(petCount, 0, PetPalTaskTargetCount);
         CreateTaskCard(
             tasksPanel.transform,
-            CleanHabitatTaskId,
+            PetPalTaskId,
+            "Pet your pal",
+            "Press and hold on your pal to pet it. Progress: " + clampedPetCount + " / " + PetPalTaskTargetCount + ".",
+            PetPalTaskCoinReward,
+            PetPalTaskAccountXpReward,
+            petCount >= PetPalTaskTargetCount);
+        CreateTaskCard(tasksPanel.transform, SleepTaskId, "Sleep 8 hours", "Let your pocketpal sleep through one full night cycle.", 20, 24, SaveManager.GetSelectedPocketPalCompletedSleepSessions() > 0);
+        int habitatCleanCount = SaveManager.GetHabitatCleanCount();
+        int clampedHabitatClean7Count = Mathf.Clamp(habitatCleanCount, 0, CleanHabitatTask7TargetCount);
+        int clampedHabitatClean15Count = Mathf.Clamp(habitatCleanCount, 0, CleanHabitatTask15TargetCount);
+        CreateTaskCard(
+            tasksPanel.transform,
+            CleanHabitatTask7Id,
             "Clean habitat x7",
-            "Pull random weeds from the sanctuary. Progress: " + clampedHabitatCleanCount + " / " + CleanHabitatTaskTargetCount + ".",
-            15,
-            14,
-            habitatCleanCount >= CleanHabitatTaskTargetCount);
+            "Pull random weeds from the sanctuary. Progress: " + clampedHabitatClean7Count + " / " + CleanHabitatTask7TargetCount + ".",
+            CleanHabitatTask7CoinReward,
+            CleanHabitatTask7AccountXpReward,
+            habitatCleanCount >= CleanHabitatTask7TargetCount);
+        CreateTaskCard(
+            tasksPanel.transform,
+            CleanHabitatTask15Id,
+            "Clean habitat x15",
+            "Clear even more weeds for a bigger care bonus. Progress: " + clampedHabitatClean15Count + " / " + CleanHabitatTask15TargetCount + ".",
+            CleanHabitatTask15CoinReward,
+            CleanHabitatTask15AccountXpReward,
+            habitatCleanCount >= CleanHabitatTask15TargetCount);
+        CreateTaskCard(
+            tasksPanel.transform,
+            UnlockWhiteTigerTaskId,
+            "Unlock White Tiger",
+            "Reach level requirements and unlock White Tiger.",
+            UnlockWhiteTigerTaskCoinReward,
+            UnlockWhiteTigerTaskAccountXpReward,
+            IsPocketPalOwned("white_tiger"));
+        CreateTaskCard(
+            tasksPanel.transform,
+            UnlockOtterTaskId,
+            "Unlock Otter",
+            "Reach level requirements and unlock Otter.",
+            UnlockOtterTaskCoinReward,
+            UnlockOtterTaskAccountXpReward,
+            IsPocketPalOwned("otter"));
 
         float rewardsPanelHeight = compactDrawerMode ? 860f : 680f;
         GameObject rewardsPanel = CreatePanel("RewardsPanel", mainContent, new Color(0.83f, 0.93f, 0.78f, 0.88f), rewardsPanelHeight);
@@ -1278,7 +1697,7 @@ public class CustomizationSceneManager : MonoBehaviour
 
         CreateRewardCard(rewardsPanel.transform, StarterRewardId, "Starter coin grant", "A small boost for opening your sanctuary.", 0, 50);
         CreateRewardCard(rewardsPanel.transform, CareRewardId, "Care progress bonus", "A bonus for completing care tasks.", 25, 100);
-        CreateRewardCard(rewardsPanel.transform, SanctuaryRewardId, "Sanctuary growth bonus", "A larger bonus for steady progress.", 50, 250);
+        CreateRewardCard(rewardsPanel.transform, PettingRewardId, "Petting progress bonus", "A larger bonus for caring for your pal.", 50, 250);
 
         float levelPanelHeight = compactDrawerMode ? 980f : 620f;
         GameObject levelPanel = CreatePanel("LevelRewardsPanel", mainContent, new Color(0.9f, 0.86f, 1f, 0.88f), levelPanelHeight);
@@ -1368,7 +1787,7 @@ public class CustomizationSceneManager : MonoBehaviour
     private void ClaimTaskReward(string taskId, int coinReward, int accountXpReward)
     {
         SaveManager.EnsureLoaded();
-        if (!SaveManager.TryMarkDailyTaskClaimed(taskId))
+        if (!TryMarkTaskClaimed(taskId))
         {
             return;
         }
@@ -1376,7 +1795,7 @@ public class CustomizationSceneManager : MonoBehaviour
         SaveManager.Data.coins += coinReward;
         SaveManager.Data.rewardProgress += coinReward;
         LevelingSystem.GrantAccountXp(accountXpReward);
-        if (taskId != CleanHabitatTaskId)
+        if (!IsHabitatCleaningTask(taskId))
         {
             LevelingSystem.GrantPocketPalXp(coinReward * 2);
             LevelingSystem.GrantHabitatXp(coinReward);
@@ -1385,8 +1804,44 @@ public class CustomizationSceneManager : MonoBehaviour
         RefreshAfterSave(TasksRewardsSceneName);
     }
 
+    private static bool IsHabitatCleaningTask(string taskId)
+    {
+        return taskId == CleanHabitatTask7Id || taskId == CleanHabitatTask15Id;
+    }
+
+    private static bool IsOneTimeTask(string taskId)
+    {
+        return taskId == UnlockWhiteTigerTaskId || taskId == UnlockOtterTaskId;
+    }
+
+    private bool TryMarkTaskClaimed(string taskId)
+    {
+        if (!IsOneTimeTask(taskId))
+        {
+            return SaveManager.TryMarkDailyTaskClaimed(taskId);
+        }
+
+        if (SaveManager.Data.completedTaskIds == null)
+        {
+            SaveManager.Data.completedTaskIds = new List<string>();
+        }
+
+        if (SaveManager.Data.completedTaskIds.Contains(taskId))
+        {
+            return false;
+        }
+
+        SaveManager.Data.completedTaskIds.Add(taskId);
+        return true;
+    }
+
     private bool IsTaskComplete(string taskId)
     {
+        if (IsOneTimeTask(taskId))
+        {
+            return SaveManager.Data.completedTaskIds != null && SaveManager.Data.completedTaskIds.Contains(taskId);
+        }
+
         return SaveManager.IsDailyTaskClaimed(taskId);
     }
 
@@ -1900,6 +2355,144 @@ public class CustomizationSceneManager : MonoBehaviour
         coinPurchaseDialogRoot = null;
         coinPurchaseDialogStatusText = null;
         coinPurchaseProcessing = false;
+    }
+
+    private void ShowHabitatPurchaseDialog(HabitatDefinition habitat)
+    {
+        if (habitat == null)
+        {
+            return;
+        }
+
+        SaveManager.EnsureLoaded();
+
+        bool levelReady = MeetsHabitatUnlockLevelRequirements(habitat);
+        bool canAfford = CanAffordHabitatUnlock(habitat);
+        bool canUnlock = levelReady && canAfford;
+        string bodyText;
+        if (canUnlock)
+        {
+            bodyText = "Unlock " + habitat.name + " for " + habitat.coinCost + " coins?";
+        }
+        else if (!levelReady)
+        {
+            bodyText = habitat.name + " needs User Lv " + habitat.requiredAccountLevel + " and Pal Lv " + habitat.requiredPocketPalLevel + ".";
+        }
+        else
+        {
+            bodyText = habitat.name + " costs " + habitat.coinCost + " coins.\nYou currently have " + SaveManager.Data.coins + " coins.";
+        }
+
+        CloseHabitatPurchaseDialog();
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        habitatPurchaseDialogRoot = new GameObject("HabitatPurchaseDialog", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        habitatPurchaseDialogRoot.transform.SetParent(canvas.transform, false);
+        habitatPurchaseDialogRoot.transform.SetAsLastSibling();
+
+        RectTransform rootRect = habitatPurchaseDialogRoot.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+
+        Image rootImage = habitatPurchaseDialogRoot.GetComponent<Image>();
+        rootImage.color = new Color(0f, 0f, 0f, 0.4f);
+        rootImage.raycastTarget = true;
+
+        Button closeOverlayButton = habitatPurchaseDialogRoot.GetComponent<Button>();
+        closeOverlayButton.targetGraphic = rootImage;
+        closeOverlayButton.onClick.AddListener(CloseHabitatPurchaseDialog);
+
+        GameObject dialogPanel = CreatePanel("HabitatPurchaseDialogPanel", habitatPurchaseDialogRoot.transform, new Color(0.96f, 0.97f, 1f, 0.99f), 320f);
+        RectTransform dialogRect = dialogPanel.GetComponent<RectTransform>();
+        dialogRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dialogRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dialogRect.pivot = new Vector2(0.5f, 0.5f);
+        dialogRect.sizeDelta = new Vector2(560f, 320f);
+        dialogRect.anchoredPosition = Vector2.zero;
+
+        ConfigurePanelLayout(dialogPanel, 24, 24, 20, 20, 12f);
+        CreateText("HabitatPurchaseDialogTitle", dialogPanel.transform, "Unlock Habitat", 30f, FontStyles.Bold, TextAlignmentOptions.Center).color = new Color(0.08f, 0.18f, 0.22f);
+        CreateText("HabitatPurchaseDialogBody", dialogPanel.transform, bodyText, 22f, FontStyles.Normal, TextAlignmentOptions.Center).color = new Color(0.12f, 0.24f, 0.3f);
+
+        GameObject buttonsRow = new GameObject("HabitatPurchaseDialogButtons", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+        buttonsRow.transform.SetParent(dialogPanel.transform, false);
+        LayoutElement buttonsLayout = buttonsRow.GetComponent<LayoutElement>();
+        buttonsLayout.preferredHeight = 88f;
+
+        HorizontalLayoutGroup buttonsGroup = buttonsRow.GetComponent<HorizontalLayoutGroup>();
+        buttonsGroup.spacing = 14f;
+        buttonsGroup.childAlignment = TextAnchor.MiddleCenter;
+        buttonsGroup.childControlWidth = true;
+        buttonsGroup.childControlHeight = true;
+        buttonsGroup.childForceExpandWidth = true;
+        buttonsGroup.childForceExpandHeight = false;
+
+        CreateDialogButton(buttonsRow.transform, "No", new Color(0.72f, 0.78f, 0.88f, 1f), CloseHabitatPurchaseDialog, true);
+        CreateDialogButton(
+            buttonsRow.transform,
+            canUnlock ? "Yes" : "Locked",
+            canUnlock ? new Color(0.56f, 0.86f, 0.64f, 1f) : new Color(0.72f, 0.72f, 0.72f, 1f),
+            delegate { TryPurchaseLockedHabitat(habitat.id); },
+            canUnlock);
+    }
+
+    private void TryPurchaseLockedHabitat(string habitatId)
+    {
+        SaveManager.EnsureLoaded();
+
+        HabitatDefinition habitat = GetHabitatDefinition(habitatId);
+        if (habitat == null)
+        {
+            CloseHabitatPurchaseDialog();
+            return;
+        }
+
+        if (IsHabitatOwned(habitatId))
+        {
+            SelectHabitat(habitatId);
+            CloseHabitatPurchaseDialog();
+            return;
+        }
+
+        if (!CanUnlockHabitatNow(habitat))
+        {
+            CloseHabitatPurchaseDialog();
+            return;
+        }
+
+        SaveManager.Data.coins -= habitat.coinCost;
+        if (SaveManager.Data.ownedHabitatIds == null)
+        {
+            SaveManager.Data.ownedHabitatIds = new List<string>();
+        }
+
+        if (!SaveManager.Data.ownedHabitatIds.Contains(habitatId))
+        {
+            SaveManager.Data.ownedHabitatIds.Add(habitatId);
+        }
+
+        SaveManager.Data.selectedHabitatId = habitatId;
+        SaveManager.Save();
+        CloseHabitatPurchaseDialog();
+        RefreshAfterSave(CustomizationSceneName);
+    }
+
+    private void CloseHabitatPurchaseDialog()
+    {
+        if (habitatPurchaseDialogRoot == null)
+        {
+            return;
+        }
+
+        Destroy(habitatPurchaseDialogRoot);
+        habitatPurchaseDialogRoot = null;
     }
 
     private void ShowAccessoryPurchaseDialog(string accessoryId)
@@ -2700,6 +3293,7 @@ public class CustomizationSceneManager : MonoBehaviour
     private void OnDisable()
     {
         CloseAccessoryPurchaseDialog();
+        CloseHabitatPurchaseDialog();
         CloseCoinPurchaseDialog();
     }
 
