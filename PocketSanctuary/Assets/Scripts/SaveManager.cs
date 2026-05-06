@@ -383,6 +383,30 @@ public static class SaveManager
         return Mathf.Max(0, progress.feedCount);
     }
 
+    public static int GetSelectedPocketPalFeedCountInCurrentCycle()
+    {
+        EnsureLoaded();
+        PocketPalProgressData progress = GetSelectedPocketPalProgress();
+        EnsurePocketPalNeedsInitialized(progress);
+        return Mathf.Max(0, progress.feedCountInCycle);
+    }
+
+    public static bool ResetSelectedPocketPalFeedCountInCurrentCycle()
+    {
+        EnsureLoaded();
+        PocketPalProgressData progress = GetSelectedPocketPalProgress();
+        EnsurePocketPalNeedsInitialized(progress);
+        if (progress.feedCountInCycle <= 0)
+        {
+            progress.feedCycleDateKey = GetTodayLocalDateKey();
+            return false;
+        }
+
+        progress.feedCountInCycle = 0;
+        progress.feedCycleDateKey = GetTodayLocalDateKey();
+        return true;
+    }
+
     public static int GetSelectedPocketPalPetCount()
     {
         EnsureLoaded();
@@ -413,6 +437,7 @@ public static class SaveManager
         EnsurePocketPalNeedsInitialized(progress);
 
         progress.feedCount = Mathf.Max(0, progress.feedCount) + 1;
+        progress.feedCountInCycle = Mathf.Max(0, progress.feedCountInCycle) + 1;
         progress.hunger = Mathf.Clamp(progress.hunger + FeedHungerGain, 0, 100);
         progress.mood = Mathf.Clamp(progress.mood + FeedMoodGain, 0, 100);
         Data.snacksFed = Mathf.Max(0, Data.snacksFed) + 1;
@@ -545,6 +570,141 @@ public static class SaveManager
         return true;
     }
 
+    public static bool IsPocketPalUnlockUnseen(string pocketPalId)
+    {
+        EnsureLoaded();
+
+        if (string.IsNullOrEmpty(pocketPalId))
+        {
+            return false;
+        }
+
+        if (Data.ownedPocketPalIds == null || !Data.ownedPocketPalIds.Contains(pocketPalId))
+        {
+            return false;
+        }
+
+        EnsureNotificationCollectionsInitialized();
+        return !Data.seenUnlockedPocketPalIds.Contains(pocketPalId);
+    }
+
+    public static bool HasUnseenUnlockedPocketPals()
+    {
+        EnsureLoaded();
+        EnsureNotificationCollectionsInitialized();
+
+        if (Data.ownedPocketPalIds == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < Data.ownedPocketPalIds.Count; index++)
+        {
+            string pocketPalId = Data.ownedPocketPalIds[index];
+            if (!string.IsNullOrEmpty(pocketPalId) && !Data.seenUnlockedPocketPalIds.Contains(pocketPalId))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool RegisterPocketPalUnlockNotification(string pocketPalId)
+    {
+        EnsureLoaded();
+
+        if (string.IsNullOrEmpty(pocketPalId))
+        {
+            return false;
+        }
+
+        EnsureNotificationCollectionsInitialized();
+        return Data.seenUnlockedPocketPalIds.Remove(pocketPalId);
+    }
+
+    public static bool MarkPocketPalUnlockSeen(string pocketPalId)
+    {
+        EnsureLoaded();
+
+        if (string.IsNullOrEmpty(pocketPalId))
+        {
+            return false;
+        }
+
+        if (Data.ownedPocketPalIds == null || !Data.ownedPocketPalIds.Contains(pocketPalId))
+        {
+            return false;
+        }
+
+        EnsureNotificationCollectionsInitialized();
+        if (Data.seenUnlockedPocketPalIds.Contains(pocketPalId))
+        {
+            return false;
+        }
+
+        Data.seenUnlockedPocketPalIds.Add(pocketPalId);
+        return true;
+    }
+
+    public static bool MarkAllOwnedPocketPalUnlocksSeen()
+    {
+        EnsureLoaded();
+        EnsureNotificationCollectionsInitialized();
+
+        if (Data.ownedPocketPalIds == null)
+        {
+            return false;
+        }
+
+        bool didChange = false;
+        for (int index = 0; index < Data.ownedPocketPalIds.Count; index++)
+        {
+            string pocketPalId = Data.ownedPocketPalIds[index];
+            if (string.IsNullOrEmpty(pocketPalId) || Data.seenUnlockedPocketPalIds.Contains(pocketPalId))
+            {
+                continue;
+            }
+
+            Data.seenUnlockedPocketPalIds.Add(pocketPalId);
+            didChange = true;
+        }
+
+        return didChange;
+    }
+
+    public static bool IsTaskReadyNotificationSeen(string taskNotificationKey)
+    {
+        EnsureLoaded();
+
+        if (string.IsNullOrEmpty(taskNotificationKey))
+        {
+            return true;
+        }
+
+        EnsureNotificationCollectionsInitialized();
+        return Data.seenReadyTaskNotificationKeys.Contains(taskNotificationKey);
+    }
+
+    public static bool MarkTaskReadyNotificationSeen(string taskNotificationKey)
+    {
+        EnsureLoaded();
+
+        if (string.IsNullOrEmpty(taskNotificationKey))
+        {
+            return false;
+        }
+
+        EnsureNotificationCollectionsInitialized();
+        if (Data.seenReadyTaskNotificationKeys.Contains(taskNotificationKey))
+        {
+            return false;
+        }
+
+        Data.seenReadyTaskNotificationKeys.Add(taskNotificationKey);
+        return true;
+    }
+
     private static void ApplyDefaultsForMissingValues()
     {
         Data.saveVersion = CurrentSaveVersion;
@@ -583,6 +743,8 @@ public static class SaveManager
         {
             Data.ownedPocketPalIds.Add("panda");
         }
+
+        EnsureNotificationCollectionsInitialized();
 
         if (!Data.ownedPocketPalIds.Contains(Data.selectedPocketPalId))
         {
@@ -730,6 +892,53 @@ public static class SaveManager
         return DateTime.Now.ToString("yyyy-MM-dd");
     }
 
+    private static void EnsureNotificationCollectionsInitialized()
+    {
+        if (Data.seenUnlockedPocketPalIds == null)
+        {
+            Data.seenUnlockedPocketPalIds = new List<string>();
+        }
+
+        if (Data.seenReadyTaskNotificationKeys == null)
+        {
+            Data.seenReadyTaskNotificationKeys = new List<string>();
+        }
+
+        DeduplicateStringList(Data.seenUnlockedPocketPalIds);
+        DeduplicateStringList(Data.seenReadyTaskNotificationKeys);
+
+        // Backfill pre-notification saves: if nothing is marked yet, treat currently owned pals as already seen.
+        if (Data.seenUnlockedPocketPalIds.Count == 0 && Data.ownedPocketPalIds != null)
+        {
+            for (int index = 0; index < Data.ownedPocketPalIds.Count; index++)
+            {
+                string pocketPalId = Data.ownedPocketPalIds[index];
+                if (!string.IsNullOrEmpty(pocketPalId) && !Data.seenUnlockedPocketPalIds.Contains(pocketPalId))
+                {
+                    Data.seenUnlockedPocketPalIds.Add(pocketPalId);
+                }
+            }
+        }
+    }
+
+    private static void DeduplicateStringList(List<string> values)
+    {
+        if (values == null)
+        {
+            return;
+        }
+
+        HashSet<string> uniqueValues = new HashSet<string>();
+        for (int index = values.Count - 1; index >= 0; index--)
+        {
+            string value = values[index];
+            if (string.IsNullOrEmpty(value) || !uniqueValues.Add(value))
+            {
+                values.RemoveAt(index);
+            }
+        }
+    }
+
     private static void EnsurePocketPalProgressInitialized(HashSet<string> validAccessoryIds)
     {
         if (Data.pocketPalProgress == null)
@@ -782,9 +991,16 @@ public static class SaveManager
             return;
         }
 
+        EnsurePocketPalFeedCycleState(progress);
+
         if (progress.feedCount < 0)
         {
             progress.feedCount = 0;
+        }
+
+        if (progress.feedCountInCycle < 0)
+        {
+            progress.feedCountInCycle = 0;
         }
 
         if (progress.petCount < 0)
@@ -817,6 +1033,30 @@ public static class SaveManager
         progress.mood = Mathf.Clamp(progress.mood, 0, 100);
     }
 
+    private static void EnsurePocketPalFeedCycleState(PocketPalProgressData progress)
+    {
+        if (progress == null)
+        {
+            return;
+        }
+
+        string todayKey = GetTodayLocalDateKey();
+        if (string.IsNullOrEmpty(progress.feedCycleDateKey))
+        {
+            progress.feedCycleDateKey = todayKey;
+            progress.feedCountInCycle = Mathf.Max(0, progress.feedCountInCycle);
+            return;
+        }
+
+        if (progress.feedCycleDateKey == todayKey)
+        {
+            return;
+        }
+
+        progress.feedCycleDateKey = todayKey;
+        progress.feedCountInCycle = 0;
+    }
+
     private static void TryUnlockPocketPalByAccountLevel(string pocketPalId, int requiredLevel, string rewardId, int coinReward, int accountXpReward)
     {
         if (string.IsNullOrEmpty(pocketPalId) || Data.accountLevel < requiredLevel)
@@ -839,6 +1079,7 @@ public static class SaveManager
         {
             Data.ownedPocketPalIds.Add(pocketPalId);
             newlyUnlocked = true;
+            RegisterPocketPalUnlockNotification(pocketPalId);
         }
 
         if (!newlyUnlocked || Data.claimedLevelRewardIds.Contains(rewardId))

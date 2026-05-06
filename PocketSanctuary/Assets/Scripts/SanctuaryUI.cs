@@ -24,13 +24,27 @@ public class SanctuaryUI : MonoBehaviour
     private const string OtterNightSleepSpriteResourcePath = "Sprites/Sleeping/otter_sleep";
     private const string DaytimePermanentBackgroundResourcePath = "Sprites/Habitats/daytime";
     private const string NighttimePermanentBackgroundResourcePath = "Sprites/Habitats/nighttime";
+    private const string CozyHousePermanentBackgroundResourcePath = "Sprites/Habitats/nighthouse";
+    private const string CozyHouseNightPermanentBackgroundResourcePath = "Sprites/Habitats/nighthouse1";
+    private const string CozyHomePandaDayBackgroundResourcePath = "Sprites/Habitats/pandahome";
+    private const string CozyHomePandaNightBackgroundResourcePath = "Sprites/Habitats/pandanight";
+    private const string CozyHomeTigerDayBackgroundResourcePath = "Sprites/Habitats/tigerhome";
+    private const string CozyHomeTigerNightBackgroundResourcePath = "Sprites/Habitats/tigernight";
+    private const string CozyHomeOtterDayBackgroundResourcePath = "Sprites/Habitats/otterhome";
+    private const string CozyHomeOtterNightBackgroundResourcePath = "Sprites/Habitats/otternight";
     private const string MoonlitHabitatId = "moonlit_pond";
     private const string CozyHouseHabitatId = "cozy_house";
+    private const string CozyHomeDayHabitatId = "cozyhome_day";
+    private const string CozyHomeNightHabitatId = "cozyhome_night";
+    private const string CozyHomeDoorButtonName = "CozyHomeDoorButton";
+    private const string CozyHomeBackButtonName = "CozyHomeBackButton";
     private const string CozyHouseLandmarkResourcePath = "Sprites/Habitats/house";
     private const float HabitatPhaseDurationSeconds = 480f;
     private const int SleepSessionPocketPalXpReward = 30;
     private const int SleepSessionAccountXpReward = 10;
     private const float NightSleepSpriteGlobalYOffset = -120f;
+    private const float NightSleepSpriteContainerSize = 600f;
+    private const float NightSleepSpriteScale = 0.75f;
     // Species-specific eyewear tuning so otter glasses can be adjusted independently.
     private const float OtterEyewearOffsetX = 0f;
     private const float OtterEyewearOffsetY = 46f;
@@ -44,10 +58,14 @@ public class SanctuaryUI : MonoBehaviour
     private const float HungerDecayIntervalSeconds = 42f;
     private const float MoodDecayIntervalSeconds = 72f;
     private const float NeedsPenaltyIntervalSeconds = 28f;
+    private const float CriticalNeedsXpPenaltyIntervalSeconds = 24f;
     private const float DaytimeSleepDrainPerSecond = 0.35f;
+    private const float CozyHomeNeedsDecayMultiplier = 0.55f;
     private const float NeedsAutosaveIntervalSeconds = 3f;
     private const int HungerDecayAmount = 1;
     private const int MoodDecayAmount = 1;
+    private const int CriticalNeedsXpPenaltyAmount = 6;
+    private const int IdealFeedsPerCycle = 3;
     private const float PetHoldStartSeconds = 0.25f;
     private const float PetMoodGainIntervalSeconds = 0.35f;
     private const int PetMoodGainAmount = 1;
@@ -69,13 +87,18 @@ public class SanctuaryUI : MonoBehaviour
     private const string LowStatColorHex = "#FF4D5A";
     private static readonly Color DayStatsTextColor = new Color(0.12f, 0.2f, 0.28f, 1f);
     private static readonly Color NightStatsTextColor = new Color(0.92f, 0.96f, 1f, 1f);
+    private static readonly Color CozyHomeStatsTextColor = new Color(0.98f, 0.99f, 1f, 1f);
 
     [SerializeField] private float pocketPalMoveSpeed = 120f;
     [SerializeField] private float pocketPalPauseTime = 0.8f;
     [SerializeField] private Vector2 pocketPalAreaMin = new Vector2(-390f, -520f);
     [SerializeField] private Vector2 pocketPalAreaMax = new Vector2(390f, -70f);
+    [SerializeField] private Vector2 cozyHomePocketPalAreaMin = new Vector2(-120f, -780f);
+    [SerializeField] private Vector2 cozyHomePocketPalAreaMax = new Vector2(300f, -260f);
+    [SerializeField] private Vector2 cozyHomeDoorPosition = new Vector2(0f, -290f);
+    [SerializeField] private Vector2 cozyHomeDoorSize = new Vector2(220f, 300f);
     [SerializeField] private Vector2 cozyHouseLandmarkSize = new Vector2(780f, 780f);
-    [SerializeField] private float cozyHouseLandmarkYOffset = 700f;
+    [SerializeField] private float cozyHouseLandmarkYOffset = 650f;
 
     private RectTransform pocketPalTransform;
     private RectTransform pocketPalVisualTransform;
@@ -83,6 +106,8 @@ public class SanctuaryUI : MonoBehaviour
     private RectTransform pocketPalShadowTransform;
     private RectTransform pocketPalNightStillTransform;
     private Image pocketPalNightStillImage;
+    private RectTransform cozyHomeDoorButtonTransform;
+    private RectTransform cozyHomeBackButtonTransform;
     private RectTransform habitatLandmarkTransform;
     private Image habitatLandmarkImage;
     private Transform playBallTransform;
@@ -105,6 +130,7 @@ public class SanctuaryUI : MonoBehaviour
     private float pocketPalFacingDirection = 1f;
     private float habitatPhaseTimer;
     private bool isNightHabitatActive;
+    private bool isCozyHomeViewActive;
     private static Sprite pandaSprite;
     private static Sprite tigerSprite;
     private static Sprite otterSprite;
@@ -114,6 +140,14 @@ public class SanctuaryUI : MonoBehaviour
     private static Sprite otterNightSleepSprite;
     private static Sprite daytimePermanentBackgroundSprite;
     private static Sprite nighttimePermanentBackgroundSprite;
+    private static Sprite cozyHousePermanentBackgroundSprite;
+    private static Sprite cozyHouseNightPermanentBackgroundSprite;
+    private static Sprite cozyHomePandaDayBackgroundSprite;
+    private static Sprite cozyHomePandaNightBackgroundSprite;
+    private static Sprite cozyHomeTigerDayBackgroundSprite;
+    private static Sprite cozyHomeTigerNightBackgroundSprite;
+    private static Sprite cozyHomeOtterDayBackgroundSprite;
+    private static Sprite cozyHomeOtterNightBackgroundSprite;
     private static Sprite cozyHouseLandmarkSprite;
     private static readonly string[] EyewearAccessoryIds = new string[]
     {
@@ -186,6 +220,7 @@ public class SanctuaryUI : MonoBehaviour
     private static readonly System.Collections.Generic.Dictionary<string, Sprite> accessorySpriteCache = new System.Collections.Generic.Dictionary<string, Sprite>();
     private static Sprite customizationButtonIcon;
     private static Sprite rewardsButtonIcon;
+    private static Sprite buttonNotificationDotSprite;
     private static Texture2D heartFxTexture;
     private static Sprite heartFxSprite;
     private const int PandaSpriteVersion = 2;
@@ -202,6 +237,7 @@ public class SanctuaryUI : MonoBehaviour
     private float hungerDecayTimer;
     private float moodDecayTimer;
     private float needsPenaltyTimer;
+    private float criticalNeedsXpPenaltyTimer;
     private float needsAutosaveTimer;
     private bool hasPendingNeedsSave;
     private bool backgroundOnlyDebugMode;
@@ -257,6 +293,7 @@ public class SanctuaryUI : MonoBehaviour
         backgroundOnlyDebugMode = SaveManager.IsBackgroundOnlyDebugModeEnabled();
         habitatPhaseTimer = 0f;
         isNightHabitatActive = false;
+        isCozyHomeViewActive = false;
         BuildSanctuaryHome();
         DisableTextRaycasts();
         CreatePocketPalButton();
@@ -276,15 +313,34 @@ public class SanctuaryUI : MonoBehaviour
         {
             MovePocketPal();
         }
-        if (!backgroundOnlyDebugMode)
+        if (!backgroundOnlyDebugMode && !isCozyHomeViewActive)
         {
             UpdateHabitatMaintenance(Time.deltaTime);
         }
         AnimateHabitatProps();
         AnimateDrawer();
         UpdateSleepMeterUI();
+        EnsureLegacyNightSleepSpriteVisible();
         UpdateHeartFx(Time.deltaTime);
         FlushPendingNeedsSave(Time.deltaTime);
+    }
+
+    private void EnsureLegacyNightSleepSpriteVisible()
+    {
+        if (!ShouldUseLegacyNightSleepSprite() || backgroundOnlyDebugMode || pocketPalTransform == null)
+        {
+            return;
+        }
+
+        bool needsRepair = pocketPalNightStillTransform == null
+            || pocketPalNightStillImage == null
+            || !pocketPalNightStillTransform.gameObject.activeSelf
+            || pocketPalNightStillImage.sprite == null;
+
+        if (needsRepair)
+        {
+            ApplyNighttimePresentation(true);
+        }
     }
 
     public void OnCustomizationClicked()
@@ -318,27 +374,33 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         bool changed = false;
+        float baseDecayMultiplier = IsCozyHomeDecayActive() ? CozyHomeNeedsDecayMultiplier : 1f;
+        float sleepDecayMultiplier = GetSleepDecayRateMultiplier();
+        float hungerFeedMultiplier = GetHungerFeedCycleMultiplier();
+        float moodNeedsMultiplier = GetMoodNeedsMultiplier();
+        float hungerDecayMultiplier = baseDecayMultiplier * sleepDecayMultiplier * hungerFeedMultiplier;
+        float moodDecayMultiplier = baseDecayMultiplier * sleepDecayMultiplier * moodNeedsMultiplier;
 
         if (!isNightHabitatActive)
         {
-            changed |= SaveManager.ReduceSelectedPocketPalSleepTime(deltaTime * DaytimeSleepDrainPerSecond);
+            changed |= SaveManager.ReduceSelectedPocketPalSleepTime(deltaTime * DaytimeSleepDrainPerSecond * baseDecayMultiplier);
         }
 
-        hungerDecayTimer += deltaTime;
+        hungerDecayTimer += deltaTime * hungerDecayMultiplier;
         while (hungerDecayTimer >= HungerDecayIntervalSeconds)
         {
             hungerDecayTimer -= HungerDecayIntervalSeconds;
             changed |= SaveManager.ModifySelectedPocketPalNeeds(-HungerDecayAmount, 0);
         }
 
-        moodDecayTimer += deltaTime;
+        moodDecayTimer += deltaTime * moodDecayMultiplier;
         while (moodDecayTimer >= MoodDecayIntervalSeconds)
         {
             moodDecayTimer -= MoodDecayIntervalSeconds;
             changed |= SaveManager.ModifySelectedPocketPalNeeds(0, -MoodDecayAmount);
         }
 
-        needsPenaltyTimer += deltaTime;
+        needsPenaltyTimer += deltaTime * moodDecayMultiplier;
         while (needsPenaltyTimer >= NeedsPenaltyIntervalSeconds)
         {
             needsPenaltyTimer -= NeedsPenaltyIntervalSeconds;
@@ -349,17 +411,42 @@ public class SanctuaryUI : MonoBehaviour
             }
         }
 
+        criticalNeedsXpPenaltyTimer += deltaTime * baseDecayMultiplier;
+        while (criticalNeedsXpPenaltyTimer >= CriticalNeedsXpPenaltyIntervalSeconds)
+        {
+            criticalNeedsXpPenaltyTimer -= CriticalNeedsXpPenaltyIntervalSeconds;
+            if (AreAllNeedsDepleted())
+            {
+                LevelingSystem.RemovePocketPalXp(CriticalNeedsXpPenaltyAmount);
+                changed = true;
+            }
+        }
+
         if (changed)
         {
             MarkNeedsDirty();
         }
     }
 
+    private bool IsCozyHomeDecayActive()
+    {
+        if (isCozyHomeViewActive)
+        {
+            return true;
+        }
+
+        return GetDaytimeHabitatId() == CozyHouseHabitatId;
+    }
+
     private int EvaluateNeedsMoodPenalty()
     {
         int penalty = 0;
         int hunger = SaveManager.GetSelectedPocketPalHunger();
-        if (hunger <= 20)
+        if (hunger <= 10)
+        {
+            penalty += 3;
+        }
+        else if (hunger <= 20)
         {
             penalty += 2;
         }
@@ -369,7 +456,11 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds);
-        if (sleepProgress <= 0.1f)
+        if (sleepProgress <= 0.05f)
+        {
+            penalty += 3;
+        }
+        else if (sleepProgress <= 0.1f)
         {
             penalty += 2;
         }
@@ -379,6 +470,118 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         return penalty;
+    }
+
+    private float GetSleepDecayRateMultiplier()
+    {
+        float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds);
+        if (sleepProgress >= 0.85f)
+        {
+            return 0.78f;
+        }
+
+        if (sleepProgress >= 0.6f)
+        {
+            return 0.95f;
+        }
+
+        if (sleepProgress >= 0.35f)
+        {
+            return 1.15f;
+        }
+
+        if (sleepProgress >= 0.15f)
+        {
+            return 1.45f;
+        }
+
+        return 1.8f;
+    }
+
+    private float GetHungerFeedCycleMultiplier()
+    {
+        int feedCountInCycle = SaveManager.GetSelectedPocketPalFeedCountInCurrentCycle();
+        if (feedCountInCycle >= IdealFeedsPerCycle + 1)
+        {
+            return 0.72f;
+        }
+
+        if (feedCountInCycle == IdealFeedsPerCycle)
+        {
+            return 0.82f;
+        }
+
+        if (feedCountInCycle == IdealFeedsPerCycle - 1)
+        {
+            return 1.0f;
+        }
+
+        if (feedCountInCycle == 1)
+        {
+            return 1.25f;
+        }
+
+        return 1.55f;
+    }
+
+    private float GetMoodNeedsMultiplier()
+    {
+        int hunger = SaveManager.GetSelectedPocketPalHunger();
+        float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds);
+
+        float hungerInfluence;
+        if (hunger <= 10)
+        {
+            hungerInfluence = 1.85f;
+        }
+        else if (hunger <= 25)
+        {
+            hungerInfluence = 1.55f;
+        }
+        else if (hunger <= 45)
+        {
+            hungerInfluence = 1.25f;
+        }
+        else if (hunger >= 80)
+        {
+            hungerInfluence = 0.82f;
+        }
+        else
+        {
+            hungerInfluence = 1f;
+        }
+
+        float sleepInfluence;
+        if (sleepProgress <= 0.05f)
+        {
+            sleepInfluence = 1.9f;
+        }
+        else if (sleepProgress <= 0.15f)
+        {
+            sleepInfluence = 1.55f;
+        }
+        else if (sleepProgress <= 0.35f)
+        {
+            sleepInfluence = 1.25f;
+        }
+        else if (sleepProgress >= 0.85f)
+        {
+            sleepInfluence = 0.8f;
+        }
+        else
+        {
+            sleepInfluence = 1f;
+        }
+
+        return Mathf.Clamp(hungerInfluence * sleepInfluence, 0.65f, 3.2f);
+    }
+
+    private bool AreAllNeedsDepleted()
+    {
+        int hunger = SaveManager.GetSelectedPocketPalHunger();
+        int mood = SaveManager.GetSelectedPocketPalMood();
+        float sleepProgress = SaveManager.GetSelectedPocketPalSleepProgress01(HabitatPhaseDurationSeconds);
+        return hunger <= 0 && mood <= 0 && sleepProgress <= 0.0001f;
     }
 
     private void UpdatePetting(float deltaTime)
@@ -615,8 +818,16 @@ public class SanctuaryUI : MonoBehaviour
 
     public void RefreshOpenPanel()
     {
+        if (isCozyHomeViewActive && !CanUseCozyHome())
+        {
+            isCozyHomeViewActive = false;
+        }
+
         if (openPanel == PanelKind.None)
         {
+            RefreshHabitatBackground();
+            ApplyNighttimePresentation(true);
+            ApplyBackgroundOnlyDebugVisibility();
             return;
         }
 
@@ -627,6 +838,7 @@ public class SanctuaryUI : MonoBehaviour
         RefreshTopBar();
         RefreshPocketPalVisual();
         ApplyNighttimePresentation(true);
+        ApplyBackgroundOnlyDebugVisibility();
         PositionPocketPalPopup();
     }
 
@@ -644,6 +856,9 @@ public class SanctuaryUI : MonoBehaviour
         EnsureSleepMeterLabel(background);
         EnsureHabitatWeedRoot();
         StyleBottomNavigationButtons();
+        EnsureCozyHomeDoorButton();
+        EnsureCozyHomeBackButton();
+        ApplyBackgroundOnlyDebugVisibility();
     }
 
     private void InitializeHabitatMaintenance()
@@ -961,6 +1176,11 @@ public class SanctuaryUI : MonoBehaviour
 
     private void RefreshHabitatBackground()
     {
+        if (isCozyHomeViewActive && !CanUseCozyHome())
+        {
+            isCozyHomeViewActive = false;
+        }
+
         Transform background = FindCanvasChild("Background");
         if (background == null)
         {
@@ -968,7 +1188,196 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         ApplyHabitatBackground(background);
+        EnsureCozyHomeDoorButton();
+        EnsureCozyHomeBackButton();
+        UpdateCozyHomeInteractableVisibility();
+        ApplyBackgroundOnlyDebugVisibility();
         EnsureHabitatWeedRoot();
+    }
+
+    private bool CanUseCozyHome()
+    {
+        if (!HasCozyHouseUnlocked())
+        {
+            return false;
+        }
+
+        if (SaveManager.Data == null)
+        {
+            return false;
+        }
+
+        string selectedPocketPalId = SaveManager.Data.selectedPocketPalId;
+        return selectedPocketPalId == "panda"
+            || selectedPocketPalId == "white_tiger"
+            || selectedPocketPalId == "otter";
+    }
+
+    private bool IsCozyHouseExteriorActive()
+    {
+        return GetDaytimeHabitatId() == CozyHouseHabitatId;
+    }
+
+    private void EnterCozyHome()
+    {
+        if (!CanUseCozyHome() || isCozyHomeViewActive)
+        {
+            return;
+        }
+
+        ClosePanel();
+        isCozyHomeViewActive = true;
+        RefreshHabitatBackground();
+        ApplyNighttimePresentation(true);
+        if (!isNightHabitatActive)
+        {
+            ChooseNewPocketPalTarget();
+        }
+    }
+
+    private void ExitCozyHome()
+    {
+        if (!isCozyHomeViewActive)
+        {
+            return;
+        }
+
+        isCozyHomeViewActive = false;
+        RefreshHabitatBackground();
+        ApplyNighttimePresentation(true);
+        if (!isNightHabitatActive)
+        {
+            ChooseNewPocketPalTarget();
+        }
+    }
+
+    private void EnsureCozyHomeDoorButton()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        if (cozyHomeDoorButtonTransform == null)
+        {
+            Transform existing = FindDescendant(canvas.transform, CozyHomeDoorButtonName);
+            if (existing != null)
+            {
+                cozyHomeDoorButtonTransform = existing as RectTransform;
+            }
+        }
+
+        if (cozyHomeDoorButtonTransform == null)
+        {
+            GameObject doorButtonObject = new GameObject(CozyHomeDoorButtonName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            doorButtonObject.transform.SetParent(canvas.transform, false);
+            cozyHomeDoorButtonTransform = doorButtonObject.GetComponent<RectTransform>();
+            cozyHomeDoorButtonTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            cozyHomeDoorButtonTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            cozyHomeDoorButtonTransform.pivot = new Vector2(0.5f, 0.5f);
+
+            Image buttonImage = doorButtonObject.GetComponent<Image>();
+            buttonImage.color = new Color(1f, 1f, 1f, 0.001f);
+            buttonImage.raycastTarget = true;
+
+            Button button = doorButtonObject.GetComponent<Button>();
+            button.targetGraphic = buttonImage;
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(EnterCozyHome);
+        }
+
+        cozyHomeDoorButtonTransform.anchoredPosition = cozyHomeDoorPosition;
+        cozyHomeDoorButtonTransform.sizeDelta = cozyHomeDoorSize;
+
+        Transform background = FindCanvasChild("Background");
+        if (background != null)
+        {
+            int sibling = Mathf.Clamp(background.GetSiblingIndex() + 1, 0, canvas.transform.childCount - 1);
+            cozyHomeDoorButtonTransform.SetSiblingIndex(sibling);
+        }
+    }
+
+    private void EnsureCozyHomeBackButton()
+    {
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        if (cozyHomeBackButtonTransform == null)
+        {
+            Transform existing = FindDescendant(canvas.transform, CozyHomeBackButtonName);
+            if (existing != null)
+            {
+                cozyHomeBackButtonTransform = existing as RectTransform;
+            }
+        }
+
+        if (cozyHomeBackButtonTransform == null)
+        {
+            GameObject backButtonObject = new GameObject(CozyHomeBackButtonName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            backButtonObject.transform.SetParent(canvas.transform, false);
+            cozyHomeBackButtonTransform = backButtonObject.GetComponent<RectTransform>();
+            cozyHomeBackButtonTransform.anchorMin = new Vector2(0.5f, 0f);
+            cozyHomeBackButtonTransform.anchorMax = new Vector2(0.5f, 0f);
+            cozyHomeBackButtonTransform.pivot = new Vector2(0.5f, 0f);
+            cozyHomeBackButtonTransform.sizeDelta = new Vector2(196f, 68f);
+            cozyHomeBackButtonTransform.anchoredPosition = new Vector2(0f, 56f);
+
+            Image buttonImage = backButtonObject.GetComponent<Image>();
+            buttonImage.color = new Color(0.93f, 0.94f, 0.98f, 0.95f);
+            buttonImage.raycastTarget = true;
+
+            Button button = backButtonObject.GetComponent<Button>();
+            button.targetGraphic = buttonImage;
+            button.transition = Selectable.Transition.ColorTint;
+            ColorBlock colors = button.colors;
+            colors.normalColor = new Color(1f, 1f, 1f, 1f);
+            colors.highlightedColor = new Color(0.98f, 0.98f, 1f, 1f);
+            colors.pressedColor = new Color(0.9f, 0.92f, 0.98f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.4f);
+            button.colors = colors;
+            button.onClick.AddListener(ExitCozyHome);
+
+            TMP_Text backLabel = CreateHomeLabel("CozyHomeBackButtonLabel", backButtonObject.transform, "Back", new Vector2(0.5f, 0.5f), 38f);
+            backLabel.color = new Color(0.2f, 0.2f, 0.24f, 1f);
+            RectTransform labelRect = backLabel.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+        }
+
+        cozyHomeBackButtonTransform.anchorMin = new Vector2(0.5f, 0f);
+        cozyHomeBackButtonTransform.anchorMax = new Vector2(0.5f, 0f);
+        cozyHomeBackButtonTransform.pivot = new Vector2(0.5f, 0f);
+        cozyHomeBackButtonTransform.sizeDelta = new Vector2(196f, 68f);
+        cozyHomeBackButtonTransform.anchoredPosition = new Vector2(0f, 56f);
+    }
+
+    private void UpdateCozyHomeInteractableVisibility()
+    {
+        if (cozyHomeDoorButtonTransform != null)
+        {
+            bool showDoor = !backgroundOnlyDebugMode
+                && !isCozyHomeViewActive
+                && CanUseCozyHome()
+                && IsCozyHouseExteriorActive();
+            cozyHomeDoorButtonTransform.gameObject.SetActive(showDoor);
+        }
+
+        if (cozyHomeBackButtonTransform != null)
+        {
+            bool showBackButton = !backgroundOnlyDebugMode && isCozyHomeViewActive;
+            cozyHomeBackButtonTransform.gameObject.SetActive(showBackButton);
+            if (showBackButton)
+            {
+                cozyHomeBackButtonTransform.SetAsLastSibling();
+            }
+        }
     }
 
     private void ApplyHabitatBackground(Transform background)
@@ -994,7 +1403,14 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
-        bool showHouse = activeHabitatId == CozyHouseHabitatId;
+        bool isCozyHouseHabitat = activeHabitatId == CozyHouseHabitatId;
+        if (isCozyHouseHabitat && cozyHousePermanentBackgroundSprite == null)
+        {
+            cozyHousePermanentBackgroundSprite = TryCreateSpriteFromResource(CozyHousePermanentBackgroundResourcePath);
+        }
+
+        // If the full cozy-house background exists, do not draw the legacy landmark house sprite.
+        bool showHouse = isCozyHouseHabitat && cozyHousePermanentBackgroundSprite == null;
         if (!showHouse)
         {
             if (habitatLandmarkTransform != null)
@@ -1066,6 +1482,11 @@ public class SanctuaryUI : MonoBehaviour
 
     private string GetActiveHabitatId()
     {
+        if (isCozyHomeViewActive)
+        {
+            return isNightHabitatActive ? CozyHomeNightHabitatId : CozyHomeDayHabitatId;
+        }
+
         return isNightHabitatActive ? MoonlitHabitatId : GetDaytimeHabitatId();
     }
 
@@ -1101,6 +1522,11 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
+        if (SaveManager.ResetSelectedPocketPalFeedCountInCurrentCycle())
+        {
+            MarkNeedsDirty();
+        }
+
         pocketPalPauseTimer = 0f;
         ChooseNewPocketPalTarget();
     }
@@ -1132,169 +1558,140 @@ public class SanctuaryUI : MonoBehaviour
 
         if (isNightHabitatActive)
         {
-            // During night mode, keep the sleeping still in the center of the screen.
-            pocketPalTransform.anchoredPosition = Vector2.zero;
-        }
-
-        EnsureNighttimeStillLayer();
-        if (refreshStillSprite && pocketPalNightStillImage != null)
-        {
-            Sprite stillSprite = GetNighttimeStillSprite();
-            if (stillSprite == null)
+            // Keep the pal centered at night before visibility rules are applied.
+            if (!isCozyHomeViewActive)
             {
-                stillSprite = GetSelectedPocketPalSprite();
+                pocketPalTransform.anchoredPosition = Vector2.zero;
             }
-
-            pocketPalNightStillImage.sprite = stillSprite;
-            pocketPalNightStillImage.enabled = stillSprite != null;
-            ConfigureNighttimeStillLayout(stillSprite);
         }
 
         RectTransform visualTransform = pocketPalVisualTransform != null ? pocketPalVisualTransform : pocketPalTransform.Find("PandaVisual") as RectTransform;
         RectTransform shadowTransform = pocketPalShadowTransform != null ? pocketPalShadowTransform : pocketPalTransform.Find("PocketPalShadow") as RectTransform;
         bool canShowPal = !backgroundOnlyDebugMode;
-        if (visualTransform != null)
-        {
-            visualTransform.gameObject.SetActive(canShowPal && !isNightHabitatActive);
-        }
+        bool useLegacySleepSprite = canShowPal && ShouldUseLegacyNightSleepSprite();
+        bool hideRuntimePalForCozyNight = canShowPal && isNightHabitatActive && HasCozyHouseUnlocked();
 
-        if (shadowTransform != null)
+        if (refreshStillSprite)
         {
-            shadowTransform.gameObject.SetActive(canShowPal && !isNightHabitatActive);
+            RefreshNightSleepSpriteLayer();
         }
 
         if (pocketPalNightStillTransform != null)
         {
-            bool canShowStill = canShowPal && isNightHabitatActive && pocketPalNightStillImage != null && pocketPalNightStillImage.sprite != null;
-            pocketPalNightStillTransform.gameObject.SetActive(canShowStill);
+            pocketPalNightStillTransform.gameObject.SetActive(useLegacySleepSprite && !hideRuntimePalForCozyNight);
         }
 
-        pocketPalTransform.gameObject.SetActive(canShowPal);
+        if (visualTransform != null)
+        {
+            visualTransform.gameObject.SetActive(canShowPal && !useLegacySleepSprite && !hideRuntimePalForCozyNight);
+        }
+
+        if (shadowTransform != null)
+        {
+            shadowTransform.gameObject.SetActive(canShowPal && !useLegacySleepSprite && !hideRuntimePalForCozyNight);
+        }
+
+        bool showPalRoot = canShowPal && !hideRuntimePalForCozyNight && (useLegacySleepSprite || visualTransform != null);
+        pocketPalTransform.gameObject.SetActive(showPalRoot);
     }
 
-    private void EnsureNighttimeStillLayer()
+    private bool ShouldUseLegacyNightSleepSprite()
+    {
+        return isNightHabitatActive
+            && !isCozyHomeViewActive
+            && !HasCozyHouseUnlocked();
+    }
+
+    private void RefreshNightSleepSpriteLayer()
     {
         if (pocketPalTransform == null)
         {
             return;
         }
 
-        if (pocketPalNightStillTransform != null
-            && pocketPalNightStillImage != null
-            && pocketPalNightStillTransform.parent == pocketPalTransform)
+        EnsureNightSleepSpriteLayer();
+        if (pocketPalNightStillTransform == null || pocketPalNightStillImage == null)
         {
             return;
         }
 
-        pocketPalNightStillTransform = null;
-        pocketPalNightStillImage = null;
+        Sprite sleepSprite = GetSelectedPocketPalNightSleepSprite();
+        pocketPalNightStillImage.sprite = sleepSprite;
+        pocketPalNightStillImage.preserveAspect = true;
+        pocketPalNightStillImage.raycastTarget = false;
 
-        Transform existingStill = pocketPalTransform.Find("NighttimeStill");
-        if (existingStill != null)
-        {
-            RectTransform existingStillRect = existingStill.GetComponent<RectTransform>();
-            Image existingStillImage = existingStill.GetComponent<Image>();
-            if (existingStillRect != null && existingStillImage != null)
-            {
-                pocketPalNightStillTransform = existingStillRect;
-                pocketPalNightStillImage = existingStillImage;
-                return;
-            }
+        Vector2 fallbackContainer = new Vector2(NightSleepSpriteContainerSize, NightSleepSpriteContainerSize);
+        Vector2 fittedSize = sleepSprite != null
+            ? GetPreservedSize(sleepSprite, fallbackContainer)
+            : fallbackContainer;
+        fittedSize *= NightSleepSpriteScale;
 
-            existingStill.gameObject.SetActive(false);
-            existingStill.SetParent(null, false);
-            Destroy(existingStill.gameObject);
-        }
-
-        GameObject stillObject = new GameObject("NighttimeStill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        stillObject.transform.SetParent(pocketPalTransform, false);
-        stillObject.transform.SetAsLastSibling();
-
-        pocketPalNightStillTransform = stillObject.GetComponent<RectTransform>();
         pocketPalNightStillTransform.anchorMin = new Vector2(0.5f, 0.5f);
         pocketPalNightStillTransform.anchorMax = new Vector2(0.5f, 0.5f);
         pocketPalNightStillTransform.pivot = new Vector2(0.5f, 0.5f);
-        pocketPalNightStillTransform.sizeDelta = new Vector2(540f, 540f);
-        pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, -8f);
-
-        pocketPalNightStillImage = stillObject.GetComponent<Image>();
-        pocketPalNightStillImage.preserveAspect = true;
-        pocketPalNightStillImage.raycastTarget = false;
-        stillObject.SetActive(false);
+        pocketPalNightStillTransform.sizeDelta = fittedSize;
+        pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, NightSleepSpriteGlobalYOffset);
+        pocketPalNightStillTransform.localScale = Vector3.one;
     }
 
-    private Sprite GetNighttimeStillSprite()
+    private void EnsureNightSleepSpriteLayer()
     {
-        if (SaveManager.Data == null)
+        if (pocketPalTransform == null)
         {
-            if (pandaNightSleepSprite == null)
-            {
-                pandaNightSleepSprite = TryCreateSpriteFromResource(PandaNightSleepSpriteResourcePath);
-            }
-
-            return pandaNightSleepSprite != null ? pandaNightSleepSprite : pandaSprite;
+            return;
         }
 
-        string selectedPocketPalId = SaveManager.Data.selectedPocketPalId;
-        if (selectedPocketPalId == "panda")
+        if (pocketPalNightStillTransform != null && pocketPalNightStillImage != null)
         {
-            if (pandaNightSleepSprite == null)
-            {
-                pandaNightSleepSprite = TryCreateSpriteFromResource(PandaNightSleepSpriteResourcePath);
-            }
-
-            if (pandaNightSleepSprite != null)
-            {
-                return pandaNightSleepSprite;
-            }
+            return;
         }
-        else if (selectedPocketPalId == "white_tiger")
+
+        Transform existing = pocketPalTransform.Find("PocketPalNightStill");
+        if (existing == null)
+        {
+            GameObject stillObject = new GameObject("PocketPalNightStill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            stillObject.transform.SetParent(pocketPalTransform, false);
+            existing = stillObject.transform;
+        }
+
+        pocketPalNightStillTransform = existing as RectTransform;
+        if (pocketPalNightStillTransform != null)
+        {
+            pocketPalNightStillTransform.SetAsLastSibling();
+        }
+
+        pocketPalNightStillImage = existing.GetComponent<Image>();
+    }
+
+    private static Sprite GetSelectedPocketPalNightSleepSprite()
+    {
+        string selectedPocketPalId = SaveManager.Data != null ? SaveManager.Data.selectedPocketPalId : "panda";
+        if (selectedPocketPalId == "white_tiger")
         {
             if (whiteTigerNightSleepSprite == null)
             {
                 whiteTigerNightSleepSprite = TryCreateSpriteFromResource(WhiteTigerNightSleepSpriteResourcePath);
             }
 
-            if (whiteTigerNightSleepSprite != null)
-            {
-                return whiteTigerNightSleepSprite;
-            }
+            return whiteTigerNightSleepSprite;
         }
-        else if (selectedPocketPalId == "otter")
+
+        if (selectedPocketPalId == "otter")
         {
             if (otterNightSleepSprite == null)
             {
                 otterNightSleepSprite = TryCreateSpriteFromResource(OtterNightSleepSpriteResourcePath);
             }
 
-            if (otterNightSleepSprite != null)
-            {
-                return otterNightSleepSprite;
-            }
+            return otterNightSleepSprite;
         }
 
-        return GetSelectedPocketPalSprite();
-    }
-
-    private void ConfigureNighttimeStillLayout(Sprite stillSprite)
-    {
-        if (pocketPalNightStillTransform == null)
+        if (pandaNightSleepSprite == null)
         {
-            return;
+            pandaNightSleepSprite = TryCreateSpriteFromResource(PandaNightSleepSpriteResourcePath);
         }
 
-        bool isDedicatedSleepSprite = stillSprite == pandaNightSleepSprite
-            || stillSprite == whiteTigerNightSleepSprite
-            || stillSprite == otterNightSleepSprite;
-        if (isDedicatedSleepSprite)
-        {
-            pocketPalNightStillTransform.sizeDelta = new Vector2(300f, 300f);
-            pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, NightSleepSpriteGlobalYOffset);
-            return;
-        }
-
-        pocketPalNightStillTransform.sizeDelta = new Vector2(230f, 230f);
-        pocketPalNightStillTransform.anchoredPosition = new Vector2(0f, NightSleepSpriteGlobalYOffset);
+        return pandaNightSleepSprite;
     }
 
     private void EnsureHomeLabels(Transform background)
@@ -1410,7 +1807,10 @@ public class SanctuaryUI : MonoBehaviour
 
         sleepMeterLabel.gameObject.SetActive(true);
 
-        sleepMeterLabel.color = isNightHabitatActive ? NightStatsTextColor : DayStatsTextColor;
+        bool useCozyHomeTextColor = isCozyHomeViewActive || GetDaytimeHabitatId() == CozyHouseHabitatId;
+        sleepMeterLabel.color = isNightHabitatActive
+            ? NightStatsTextColor
+            : (useCozyHomeTextColor ? CozyHomeStatsTextColor : DayStatsTextColor);
         sleepMeterLabel.richText = true;
 
         float sleepSeconds = SaveManager.GetSelectedPocketPalSleepSeconds();
@@ -1419,7 +1819,7 @@ public class SanctuaryUI : MonoBehaviour
         int pocketPalLevel = SaveManager.GetSelectedPocketPalLevel();
         int hunger = SaveManager.GetSelectedPocketPalHunger();
         int mood = SaveManager.GetSelectedPocketPalMood();
-        int timesFed = SaveManager.GetSelectedPocketPalFeedCount();
+        int timesFed = SaveManager.GetSelectedPocketPalFeedCountInCurrentCycle();
         int sleepProgressPercent = Mathf.FloorToInt(sleepProgress);
         bool lowHunger = IsStatLow(hunger);
         bool lowMood = IsStatLow(mood);
@@ -1430,7 +1830,7 @@ public class SanctuaryUI : MonoBehaviour
             " | " + FormatAlertStatText("Hunger " + hunger + "/100", lowHunger) +
             " | " + FormatAlertStatText("Mood " + mood + "/100", lowMood) +
             "\n" + FormatAlertStatText("Sleep " + FormatDurationMmSs(sleepSeconds) + " / " + FormatDurationMmSs(HabitatPhaseDurationSeconds) + " (" + sleepProgressPercent + "%)", lowSleep) +
-            " | Fed " + timesFed;
+            " | Fed " + timesFed + "/" + IdealFeedsPerCycle;
     }
 
     private static bool IsStatLow(int currentPercentValue)
@@ -1484,12 +1884,12 @@ public class SanctuaryUI : MonoBehaviour
             }
 
             ApplyNighttimePresentation(true);
-            ConfigurePocketPalInteraction(existingPal.gameObject);
+            DisableRootPocketPalHitbox(existingPal.gameObject);
 
             return;
         }
 
-        GameObject pocketPal = new GameObject(PocketPalButtonName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        GameObject pocketPal = new GameObject(PocketPalButtonName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         pocketPal.transform.SetParent(canvas.transform, false);
         pocketPal.transform.SetAsLastSibling();
 
@@ -1501,36 +1901,88 @@ public class SanctuaryUI : MonoBehaviour
         pocketPalTransform.anchoredPosition = Vector2.zero;
 
         Image image = pocketPal.GetComponent<Image>();
-        image.color = new Color(1f, 1f, 1f, 0.01f);
-        image.raycastTarget = true;
+        image.color = Color.clear;
+        image.raycastTarget = false;
         image.type = Image.Type.Simple;
 
-        Button button = pocketPal.GetComponent<Button>();
-        button.targetGraphic = image;
-
         CreatePocketPalSprite(pocketPal.transform);
-        ConfigurePocketPalInteraction(pocketPal);
+        DisableRootPocketPalHitbox(pocketPal);
     }
 
-    private void ConfigurePocketPalInteraction(GameObject pocketPalObject)
+    private void DisableRootPocketPalHitbox(GameObject pocketPalObject)
     {
         if (pocketPalObject == null)
         {
             return;
         }
 
+        Image image = pocketPalObject.GetComponent<Image>();
+        if (image != null)
+        {
+            image.color = Color.clear;
+            image.raycastTarget = false;
+        }
+
         Button button = pocketPalObject.GetComponent<Button>();
         if (button != null)
         {
             button.onClick.RemoveListener(OnAnimalClicked);
-            button.onClick.AddListener(OnAnimalClicked);
+            button.enabled = false;
         }
 
         EventTrigger eventTrigger = pocketPalObject.GetComponent<EventTrigger>();
+        if (eventTrigger != null)
+        {
+            if (eventTrigger.triggers != null)
+            {
+                eventTrigger.triggers.Clear();
+            }
+
+            eventTrigger.enabled = false;
+        }
+    }
+
+    private void ConfigurePocketPalInteraction(GameObject hitTargetObject, Image hitTargetImage)
+    {
+        if (hitTargetObject == null)
+        {
+            return;
+        }
+
+        if (hitTargetImage == null)
+        {
+            hitTargetImage = hitTargetObject.GetComponent<Image>();
+        }
+
+        if (hitTargetImage != null)
+        {
+            hitTargetImage.raycastTarget = true;
+            hitTargetImage.alphaHitTestMinimumThreshold = 0.08f;
+        }
+
+        Button button = hitTargetObject.GetComponent<Button>();
+        if (button == null)
+        {
+            button = hitTargetObject.AddComponent<Button>();
+        }
+
+        button.enabled = true;
+        button.transition = Selectable.Transition.None;
+        if (hitTargetImage != null)
+        {
+            button.targetGraphic = hitTargetImage;
+        }
+
+        button.onClick.RemoveListener(OnAnimalClicked);
+        button.onClick.AddListener(OnAnimalClicked);
+
+        EventTrigger eventTrigger = hitTargetObject.GetComponent<EventTrigger>();
         if (eventTrigger == null)
         {
-            eventTrigger = pocketPalObject.AddComponent<EventTrigger>();
+            eventTrigger = hitTargetObject.AddComponent<EventTrigger>();
         }
+
+        eventTrigger.enabled = true;
 
         if (eventTrigger.triggers == null)
         {
@@ -1646,13 +2098,18 @@ public class SanctuaryUI : MonoBehaviour
 
     private Vector2 ClampPocketPalToGroundBounds(Vector2 position)
     {
-        float minX = Mathf.Min(pocketPalAreaMin.x, pocketPalAreaMax.x);
-        float maxX = Mathf.Max(pocketPalAreaMin.x, pocketPalAreaMax.x);
-        float minY = Mathf.Min(pocketPalAreaMin.y, pocketPalAreaMax.y);
-        float maxY = Mathf.Max(pocketPalAreaMin.y, pocketPalAreaMax.y);
+        Vector2 movementMin = isCozyHomeViewActive ? cozyHomePocketPalAreaMin : pocketPalAreaMin;
+        Vector2 movementMax = isCozyHomeViewActive ? cozyHomePocketPalAreaMax : pocketPalAreaMax;
+        float minX = Mathf.Min(movementMin.x, movementMax.x);
+        float maxX = Mathf.Max(movementMin.x, movementMax.x);
+        float minY = Mathf.Min(movementMin.y, movementMax.y);
+        float maxY = Mathf.Max(movementMin.y, movementMax.y);
 
-        // Never allow the pet to drift above the grass line (into sky/fence area).
-        maxY = Mathf.Min(maxY, -70f);
+        // Never allow the pet to drift above the grass line (into sky/fence area) on outdoor sanctuary backgrounds.
+        if (!isCozyHomeViewActive)
+        {
+            maxY = Mathf.Min(maxY, -70f);
+        }
 
         return new Vector2(
             Mathf.Clamp(position.x, minX, maxX),
@@ -1666,6 +2123,22 @@ public class SanctuaryUI : MonoBehaviour
             pocketPalTargetPosition = new Vector2(0f, -210f);
             pocketPalTargetMessage = GetPocketPalDisplayName() + " is sleeping.";
             SetHabitatActivity(HabitatActivity.SleepingInHammock);
+            return;
+        }
+
+        if (isCozyHomeViewActive)
+        {
+            Vector2 cozyMin = new Vector2(
+                Mathf.Min(cozyHomePocketPalAreaMin.x, cozyHomePocketPalAreaMax.x),
+                Mathf.Min(cozyHomePocketPalAreaMin.y, cozyHomePocketPalAreaMax.y));
+            Vector2 cozyMax = new Vector2(
+                Mathf.Max(cozyHomePocketPalAreaMin.x, cozyHomePocketPalAreaMax.x),
+                Mathf.Max(cozyHomePocketPalAreaMin.y, cozyHomePocketPalAreaMax.y));
+            pocketPalTargetPosition = new Vector2(
+                Random.Range(cozyMin.x, cozyMax.x),
+                Random.Range(cozyMin.y, cozyMax.y));
+            pocketPalTargetMessage = GetPocketPalDisplayName() + " is exploring CozyHome.";
+            SetHabitatActivity(HabitatActivity.Exploring);
             return;
         }
 
@@ -1766,28 +2239,30 @@ public class SanctuaryUI : MonoBehaviour
 
     private void ApplyBackgroundOnlyDebugVisibility()
     {
+        bool showSanctuaryUi = !backgroundOnlyDebugMode && !isCozyHomeViewActive;
+
         Canvas canvas = FindAnyObjectByType<Canvas>();
         if (canvas != null)
         {
             Transform customizationButton = FindDescendant(canvas.transform, CustomizationButtonName);
             if (customizationButton != null)
             {
-                customizationButton.gameObject.SetActive(!backgroundOnlyDebugMode);
+                customizationButton.gameObject.SetActive(showSanctuaryUi);
             }
 
             Transform tasksRewardsButton = FindDescendant(canvas.transform, TasksRewardsButtonName);
             if (tasksRewardsButton != null)
             {
-                tasksRewardsButton.gameObject.SetActive(!backgroundOnlyDebugMode);
+                tasksRewardsButton.gameObject.SetActive(showSanctuaryUi);
             }
         }
 
         if (habitatWeedRoot != null)
         {
-            habitatWeedRoot.gameObject.SetActive(!backgroundOnlyDebugMode);
+            habitatWeedRoot.gameObject.SetActive(showSanctuaryUi);
         }
 
-        if (backgroundOnlyDebugMode)
+        if (!showSanctuaryUi)
         {
             ClearHabitatWeeds();
         }
@@ -1796,6 +2271,8 @@ public class SanctuaryUI : MonoBehaviour
         {
             sleepMeterLabel.gameObject.SetActive(!backgroundOnlyDebugMode);
         }
+
+        UpdateCozyHomeInteractableVisibility();
     }
 
     private void OnDisable()
@@ -1824,8 +2301,26 @@ public class SanctuaryUI : MonoBehaviour
 
     private void ClosePanel()
     {
+        PanelKind closingPanel = openPanel;
+        bool didMarkNotifications = false;
+        if (closingPanel == PanelKind.Customization)
+        {
+            didMarkNotifications = SaveManager.MarkAllOwnedPocketPalUnlocksSeen();
+        }
+        else if (closingPanel == PanelKind.TasksRewards)
+        {
+            didMarkNotifications = CustomizationSceneManager.MarkAllCurrentReadyTaskNotificationsSeen();
+        }
+
         openPanel = PanelKind.None;
         drawerAnimationTarget = 0f;
+
+        if (didMarkNotifications)
+        {
+            SaveManager.Save();
+        }
+
+        StyleBottomNavigationButtons();
     }
 
     private void EnsureDrawerRoot()
@@ -2421,6 +2916,8 @@ public class SanctuaryUI : MonoBehaviour
         {
             topBarManager.RefreshCoinDisplay();
         }
+
+        StyleBottomNavigationButtons();
     }
 
     private void PositionPocketPalPopup()
@@ -2448,12 +2945,8 @@ public class SanctuaryUI : MonoBehaviour
             return;
         }
 
-        pocketPalNightStillTransform = null;
-        pocketPalNightStillImage = null;
-
         DestroyAllPocketPalLayersByName("PandaVisual");
         DestroyAllPocketPalLayersByName("PocketPalShadow");
-        DestroyAllPocketPalLayersByName("NighttimeStill");
 
         CreatePocketPalSprite(pocketPalTransform);
         ApplyNighttimePresentation(true);
@@ -2968,11 +3461,23 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         EnsureButtonIcons();
-        StyleIconButton(FindDescendant(canvas.transform, "CustomizationButton"), "Customize", customizationButtonIcon, new Color(0.95f, 0.78f, 0.28f, 1f));
-        StyleIconButton(FindDescendant(canvas.transform, "TasksRewardsButton"), "Rewards", rewardsButtonIcon, new Color(0.3f, 0.78f, 0.66f, 1f));
+        bool hasNewPocketPalUnlock = SaveManager.HasUnseenUnlockedPocketPals();
+        bool hasReadyTaskRewards = CustomizationSceneManager.HasAnyUnseenReadyTaskNotifications();
+        StyleIconButton(
+            FindDescendant(canvas.transform, "CustomizationButton"),
+            "Customize",
+            customizationButtonIcon,
+            new Color(0.95f, 0.78f, 0.28f, 1f),
+            hasNewPocketPalUnlock);
+        StyleIconButton(
+            FindDescendant(canvas.transform, "TasksRewardsButton"),
+            "Rewards",
+            rewardsButtonIcon,
+            new Color(0.3f, 0.78f, 0.66f, 1f),
+            hasReadyTaskRewards);
     }
 
-    private void StyleIconButton(Transform buttonTransform, string labelText, Sprite icon, Color buttonColor)
+    private void StyleIconButton(Transform buttonTransform, string labelText, Sprite icon, Color buttonColor, bool showNotificationDot)
     {
         if (buttonTransform == null)
         {
@@ -3035,6 +3540,69 @@ public class SanctuaryUI : MonoBehaviour
         iconImage.sprite = icon;
         iconImage.preserveAspect = true;
         iconImage.raycastTarget = false;
+
+        SetButtonNotificationDot(buttonTransform, showNotificationDot);
+    }
+
+    private void SetButtonNotificationDot(Transform buttonTransform, bool isVisible)
+    {
+        if (buttonTransform == null)
+        {
+            return;
+        }
+
+        Transform existingDot = buttonTransform.Find("NotificationDot");
+        GameObject dotObject = existingDot != null
+            ? existingDot.gameObject
+            : new GameObject("NotificationDot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        dotObject.transform.SetParent(buttonTransform, false);
+        dotObject.transform.SetAsLastSibling();
+
+        RectTransform dotRect = dotObject.GetComponent<RectTransform>();
+        dotRect.anchorMin = new Vector2(1f, 1f);
+        dotRect.anchorMax = new Vector2(1f, 1f);
+        dotRect.pivot = new Vector2(1f, 1f);
+        dotRect.sizeDelta = new Vector2(18f, 18f);
+        dotRect.anchoredPosition = new Vector2(-8f, -8f);
+
+        Image dotImage = dotObject.GetComponent<Image>();
+        dotImage.sprite = GetButtonNotificationDotSprite();
+        dotImage.preserveAspect = true;
+        dotImage.color = new Color(0.95f, 0.2f, 0.25f, 1f);
+        dotImage.raycastTarget = false;
+
+        dotObject.SetActive(isVisible);
+    }
+
+    private static Sprite GetButtonNotificationDotSprite()
+    {
+        if (buttonNotificationDotSprite != null)
+        {
+            return buttonNotificationDotSprite;
+        }
+
+        buttonNotificationDotSprite = CreateButtonNotificationDotSprite();
+        return buttonNotificationDotSprite;
+    }
+
+    private static Sprite CreateButtonNotificationDotSprite()
+    {
+        const int size = 64;
+        Texture2D texture = CreateTransparentTexture(size, size);
+
+        Color shadow = new Color(0.45f, 0.08f, 0.12f, 0.32f);
+        Color fill = new Color(0.95f, 0.2f, 0.25f, 1f);
+        Color highlight = new Color(1f, 0.56f, 0.62f, 0.92f);
+
+        DrawEllipse(texture, 33, 29, 23, 23, shadow);
+        DrawEllipse(texture, 32, 32, 21, 21, fill);
+        DrawEllipse(texture, 25, 39, 8, 6, highlight);
+
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
     }
 
     private Transform FindDescendant(Transform parent, string childName)
@@ -3098,7 +3666,7 @@ public class SanctuaryUI : MonoBehaviour
         Image pandaImage = spriteObject.GetComponent<Image>();
         pandaImage.sprite = GetSelectedPocketPalSprite();
         pandaImage.preserveAspect = true;
-        pandaImage.raycastTarget = false;
+        ConfigurePocketPalInteraction(spriteObject, pandaImage);
 
         CreateAccessoryLayers(visualObject.transform);
     }
@@ -3574,15 +4142,7 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         Texture2D spriteTexture = texture;
-        if (IsSleepSpriteResourcePath(resourcePath))
-        {
-            Texture2D cleanedSleepTexture = CreateSleepSpriteWithTransparentEdgeBackground(texture);
-            if (cleanedSleepTexture != null)
-            {
-                spriteTexture = cleanedSleepTexture;
-            }
-        }
-        else if (IsHabitatOverlayResourcePath(resourcePath))
+        if (IsHabitatOverlayResourcePath(resourcePath) || IsSleepSpriteResourcePath(resourcePath))
         {
             Texture2D cleanedHabitatTexture = CreateHabitatSpriteWithTransparentEdgeBackground(texture);
             if (cleanedHabitatTexture != null)
@@ -3597,139 +4157,20 @@ public class SanctuaryUI : MonoBehaviour
         return Sprite.Create(spriteTexture, rect, new Vector2(0.5f, 0.5f), 100f);
     }
 
-    private static bool IsSleepSpriteResourcePath(string resourcePath)
-    {
-        return !string.IsNullOrEmpty(resourcePath) && resourcePath.StartsWith("Sprites/Sleeping/");
-    }
-
     private static bool IsHabitatOverlayResourcePath(string resourcePath)
     {
-        return !string.IsNullOrEmpty(resourcePath) && resourcePath.StartsWith("Sprites/Habitats/");
+        // Only cleanup legacy overlay-like habitat art (single landmark sprites).
+        // Full-scene habitat backgrounds (daytime/nighttime/cozy-house) should remain untouched.
+        return !string.IsNullOrEmpty(resourcePath) &&
+               resourcePath == CozyHouseLandmarkResourcePath;
     }
 
-    private static Texture2D CreateSleepSpriteWithTransparentEdgeBackground(Texture2D sourceTexture)
+    private static bool IsSleepSpriteResourcePath(string resourcePath)
     {
-        if (sourceTexture == null)
-        {
-            return null;
-        }
-
-        Texture2D readableTexture = TryCreateReadableTextureCopy(sourceTexture);
-        if (readableTexture == null)
-        {
-            return null;
-        }
-
-        int width = readableTexture.width;
-        int height = readableTexture.height;
-        Color[] pixels = readableTexture.GetPixels();
-        int pixelCount = pixels.Length;
-        bool[] visited = new bool[pixelCount];
-        Queue<int> queue = new Queue<int>(pixelCount / 8);
-        bool removedAnyBackground = false;
-
-        bool IsEdgeBackground(Color color)
-        {
-            if (color.a <= 0.01f)
-            {
-                return true;
-            }
-
-            float min = Mathf.Min(color.r, Mathf.Min(color.g, color.b));
-            float max = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
-            float saturation = max <= 0.0001f ? 0f : (max - min) / max;
-            return color.r >= 0.93f && color.g >= 0.93f && color.b >= 0.93f && saturation <= 0.12f;
-        }
-
-        void EnqueueIfBackground(int x, int y)
-        {
-            int pixelIndex = (y * width) + x;
-            if (visited[pixelIndex] || !IsEdgeBackground(pixels[pixelIndex]))
-            {
-                return;
-            }
-
-            visited[pixelIndex] = true;
-            queue.Enqueue(pixelIndex);
-        }
-
-        for (int x = 0; x < width; x++)
-        {
-            EnqueueIfBackground(x, 0);
-            EnqueueIfBackground(x, height - 1);
-        }
-
-        for (int y = 1; y < height - 1; y++)
-        {
-            EnqueueIfBackground(0, y);
-            EnqueueIfBackground(width - 1, y);
-        }
-
-        while (queue.Count > 0)
-        {
-            int pixelIndex = queue.Dequeue();
-            Color color = pixels[pixelIndex];
-            if (color.a > 0f)
-            {
-                color.a = 0f;
-                pixels[pixelIndex] = color;
-                removedAnyBackground = true;
-            }
-
-            int x = pixelIndex % width;
-            int y = pixelIndex / width;
-
-            if (x > 0)
-            {
-                EnqueueIfBackground(x - 1, y);
-            }
-
-            if (x < width - 1)
-            {
-                EnqueueIfBackground(x + 1, y);
-            }
-
-            if (y > 0)
-            {
-                EnqueueIfBackground(x, y - 1);
-            }
-
-            if (y < height - 1)
-            {
-                EnqueueIfBackground(x, y + 1);
-            }
-        }
-
-        if (!removedAnyBackground)
-        {
-            if (Application.isPlaying)
-            {
-                Destroy(readableTexture);
-            }
-            else
-            {
-                DestroyImmediate(readableTexture);
-            }
-
-            return sourceTexture;
-        }
-
-        Texture2D output = new Texture2D(width, height, TextureFormat.RGBA32, false);
-        output.SetPixels(pixels);
-        output.Apply(false, false);
-        output.wrapMode = TextureWrapMode.Clamp;
-        output.filterMode = FilterMode.Bilinear;
-
-        if (Application.isPlaying)
-        {
-            Destroy(readableTexture);
-        }
-        else
-        {
-            DestroyImmediate(readableTexture);
-        }
-
-        return output;
+        return !string.IsNullOrEmpty(resourcePath)
+            && (resourcePath == PandaNightSleepSpriteResourcePath
+                || resourcePath == WhiteTigerNightSleepSpriteResourcePath
+                || resourcePath == OtterNightSleepSpriteResourcePath);
     }
 
     private static Texture2D CreateHabitatSpriteWithTransparentEdgeBackground(Texture2D sourceTexture)
@@ -4206,8 +4647,52 @@ public class SanctuaryUI : MonoBehaviour
     {
         string safeHabitatId = string.IsNullOrEmpty(habitatId) ? "sunny_garden" : habitatId;
 
+        if (safeHabitatId == CozyHomeDayHabitatId)
+        {
+            Sprite cozyHomeDaySprite = GetCozyHomeInteriorBackgroundSprite(false);
+            if (cozyHomeDaySprite != null)
+            {
+                return cozyHomeDaySprite;
+            }
+        }
+
+        if (safeHabitatId == CozyHomeNightHabitatId)
+        {
+            Sprite cozyHomeNightSprite = GetCozyHomeInteriorBackgroundSprite(true);
+            if (cozyHomeNightSprite != null)
+            {
+                return cozyHomeNightSprite;
+            }
+        }
+
+        if (safeHabitatId == CozyHouseHabitatId)
+        {
+            if (cozyHousePermanentBackgroundSprite == null)
+            {
+                cozyHousePermanentBackgroundSprite = TryCreateSpriteFromResource(CozyHousePermanentBackgroundResourcePath);
+            }
+
+            if (cozyHousePermanentBackgroundSprite != null)
+            {
+                return cozyHousePermanentBackgroundSprite;
+            }
+        }
+
         if (safeHabitatId == MoonlitHabitatId)
         {
+            if (HasCozyHouseUnlocked())
+            {
+                if (cozyHouseNightPermanentBackgroundSprite == null)
+                {
+                    cozyHouseNightPermanentBackgroundSprite = TryCreateSpriteFromResource(CozyHouseNightPermanentBackgroundResourcePath);
+                }
+
+                if (cozyHouseNightPermanentBackgroundSprite != null)
+                {
+                    return cozyHouseNightPermanentBackgroundSprite;
+                }
+            }
+
             if (nighttimePermanentBackgroundSprite == null)
             {
                 nighttimePermanentBackgroundSprite = TryCreateSpriteFromResource(NighttimePermanentBackgroundResourcePath);
@@ -4240,6 +4725,78 @@ public class SanctuaryUI : MonoBehaviour
         }
 
         return habitatBackgroundSprites[safeHabitatId];
+    }
+
+    private static Sprite GetCozyHomeInteriorBackgroundSprite(bool isNight)
+    {
+        string selectedPocketPalId = SaveManager.Data != null ? SaveManager.Data.selectedPocketPalId : "panda";
+        switch (selectedPocketPalId)
+        {
+            case "white_tiger":
+                if (isNight)
+                {
+                    if (cozyHomeTigerNightBackgroundSprite == null)
+                    {
+                        cozyHomeTigerNightBackgroundSprite = TryCreateSpriteFromResource(CozyHomeTigerNightBackgroundResourcePath);
+                    }
+
+                    return cozyHomeTigerNightBackgroundSprite;
+                }
+
+                if (cozyHomeTigerDayBackgroundSprite == null)
+                {
+                    cozyHomeTigerDayBackgroundSprite = TryCreateSpriteFromResource(CozyHomeTigerDayBackgroundResourcePath);
+                }
+
+                return cozyHomeTigerDayBackgroundSprite;
+
+            case "otter":
+                if (isNight)
+                {
+                    if (cozyHomeOtterNightBackgroundSprite == null)
+                    {
+                        cozyHomeOtterNightBackgroundSprite = TryCreateSpriteFromResource(CozyHomeOtterNightBackgroundResourcePath);
+                    }
+
+                    return cozyHomeOtterNightBackgroundSprite;
+                }
+
+                if (cozyHomeOtterDayBackgroundSprite == null)
+                {
+                    cozyHomeOtterDayBackgroundSprite = TryCreateSpriteFromResource(CozyHomeOtterDayBackgroundResourcePath);
+                }
+
+                return cozyHomeOtterDayBackgroundSprite;
+
+            case "panda":
+            default:
+                if (isNight)
+                {
+                    if (cozyHomePandaNightBackgroundSprite == null)
+                    {
+                        cozyHomePandaNightBackgroundSprite = TryCreateSpriteFromResource(CozyHomePandaNightBackgroundResourcePath);
+                    }
+
+                    return cozyHomePandaNightBackgroundSprite;
+                }
+
+                if (cozyHomePandaDayBackgroundSprite == null)
+                {
+                    cozyHomePandaDayBackgroundSprite = TryCreateSpriteFromResource(CozyHomePandaDayBackgroundResourcePath);
+                }
+
+                return cozyHomePandaDayBackgroundSprite;
+        }
+    }
+
+    private static bool HasCozyHouseUnlocked()
+    {
+        if (SaveManager.Data == null || SaveManager.Data.ownedHabitatIds == null)
+        {
+            return false;
+        }
+
+        return SaveManager.Data.ownedHabitatIds.Contains(CozyHouseHabitatId);
     }
 
     private static Texture2D CreateHabitatBackgroundTexture(string habitatId)

@@ -70,6 +70,8 @@ public class CustomizationSceneManager : MonoBehaviour
     private const string StarterRewardId = "starter_coin_grant";
     private const string CareRewardId = "care_progress_bonus";
     private const string PettingRewardId = "petting_progress_bonus";
+    private const string TaskReadyNotificationOncePrefix = "task_ready_once:";
+    private const string TaskReadyNotificationDailyPrefix = "task_ready_daily:";
     private const string AccessoryPurchaseLockSetupFlag = "qa_accessory_lock_setup_v1";
     private const string AccessoryLockIconText = "🔒";
     private const string ShopAssetsSheetResourcePath = "Sprites/Shop/shopassets";
@@ -92,6 +94,7 @@ public class CustomizationSceneManager : MonoBehaviour
     private int pocketPalFeedCount;
     private bool compactDrawerMode;
     private static Sprite lockBadgeSprite;
+    private static Sprite notificationDotSprite;
     private static readonly Dictionary<string, Sprite> previewSpriteCache = new Dictionary<string, Sprite>();
     private static readonly Dictionary<string, Sprite> coinPackSpriteCache = new Dictionary<string, Sprite>();
     private static readonly Dictionary<string, Sprite> pocketPalIconSpriteCache = new Dictionary<string, Sprite>();
@@ -589,6 +592,11 @@ public class CustomizationSceneManager : MonoBehaviour
         TMP_Text statusLabel = CreateText(pocketPal.id + "CompactPalStatus", buttonObject.transform, statusText, 14, FontStyles.Normal, TextAlignmentOptions.Center);
         statusLabel.color = isOwned ? new Color(0.1f, 0.22f, 0.26f) : new Color(0.3f, 0.34f, 0.38f);
 
+        if (isOwned && SaveManager.IsPocketPalUnlockUnseen(pocketPal.id))
+        {
+            CreateNotificationDot(buttonObject.transform, pocketPal.id + "CompactPalNotificationDot", new Vector2(-10f, -10f), 18f);
+        }
+
         if (!isOwned)
         {
             GameObject lockObject = new GameObject(pocketPal.id + "CompactPalLock", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
@@ -975,6 +983,65 @@ public class CustomizationSceneManager : MonoBehaviour
         return lockBadgeSprite;
     }
 
+    private void CreateNotificationDot(Transform parent, string objectName, Vector2 anchoredPosition, float size)
+    {
+        if (parent == null)
+        {
+            return;
+        }
+
+        GameObject dotObject = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
+        dotObject.transform.SetParent(parent, false);
+        dotObject.transform.SetAsLastSibling();
+
+        RectTransform dotRect = dotObject.GetComponent<RectTransform>();
+        dotRect.anchorMin = new Vector2(1f, 1f);
+        dotRect.anchorMax = new Vector2(1f, 1f);
+        dotRect.pivot = new Vector2(1f, 1f);
+        dotRect.sizeDelta = new Vector2(size, size);
+        dotRect.anchoredPosition = anchoredPosition;
+
+        Image dotImage = dotObject.GetComponent<Image>();
+        dotImage.sprite = GetNotificationDotSprite();
+        dotImage.preserveAspect = true;
+        dotImage.color = new Color(0.95f, 0.2f, 0.25f, 1f);
+        dotImage.raycastTarget = false;
+
+        LayoutElement dotLayout = dotObject.GetComponent<LayoutElement>();
+        dotLayout.ignoreLayout = true;
+    }
+
+    private static Sprite GetNotificationDotSprite()
+    {
+        if (notificationDotSprite != null)
+        {
+            return notificationDotSprite;
+        }
+
+        notificationDotSprite = CreateNotificationDotGraphicSprite();
+        return notificationDotSprite;
+    }
+
+    private static Sprite CreateNotificationDotGraphicSprite()
+    {
+        const int size = 64;
+        Texture2D texture = CreateTransparentTexture(size, size);
+
+        Color shadow = new Color(0.45f, 0.08f, 0.12f, 0.32f);
+        Color fill = new Color(0.95f, 0.2f, 0.25f, 1f);
+        Color highlight = new Color(1f, 0.56f, 0.62f, 0.92f);
+
+        DrawEllipse(texture, 33, 29, 23, 23, shadow);
+        DrawEllipse(texture, 32, 32, 21, 21, fill);
+        DrawEllipse(texture, 25, 39, 8, 6, highlight);
+
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
+    }
+
     private static Sprite CreateLockBadgeSprite()
     {
         const int size = 64;
@@ -1096,6 +1163,11 @@ public class CustomizationSceneManager : MonoBehaviour
         string statusText = isOwned ? (isSelected ? "Selected" : "Tap to use") : canUnlockNow ? "Tap to unlock" : "Unlocks at Lv " + pocketPal.requiredAccountLevel;
         TMP_Text label = CreateText(pocketPal.id + "PocketPalLabel", card.transform, pocketPal.name + "\n" + pocketPal.description + "\n" + statusText, 25, FontStyles.Normal, TextAlignmentOptions.Left);
         label.color = isOwned ? new Color(0.08f, 0.18f, 0.22f) : new Color(0.22f, 0.28f, 0.3f);
+
+        if (isOwned && SaveManager.IsPocketPalUnlockUnseen(pocketPal.id))
+        {
+            CreateNotificationDot(card.transform, pocketPal.id + "PocketPalCardNotificationDot", new Vector2(-14f, -12f), 20f);
+        }
     }
 
     private void CreateHabitatCard(HabitatDefinition habitat, Transform parent)
@@ -1325,6 +1397,7 @@ public class CustomizationSceneManager : MonoBehaviour
         }
 
         SaveManager.Data.ownedPocketPalIds.Add(pocketPalId);
+        SaveManager.RegisterPocketPalUnlockNotification(pocketPalId);
         return true;
     }
 
@@ -1603,11 +1676,6 @@ public class CustomizationSceneManager : MonoBehaviour
         ClearChildren(mainContent);
         SaveManager.EnsureDailyTaskClaimsForToday();
 
-        if (!compactDrawerMode)
-        {
-            CreateTitle(mainContent, "Tasks & Rewards");
-        }
-
         const int compactTaskCardCount = 9;
         const float compactTaskCardHeight = 208f;
         const float compactTasksPanelSectionPadding = 40f; // top + bottom after compact padding adjustments
@@ -1620,15 +1688,6 @@ public class CustomizationSceneManager : MonoBehaviour
             : 860f;
         GameObject tasksPanel = CreatePanel("TasksPanel", mainContent, new Color(0.86f, 0.95f, 1f, 0.84f), tasksPanelHeight);
         ConfigurePanelLayout(tasksPanel, 28, 28, 34, 34, compactDrawerMode ? 24f : 22f);
-
-        if (!compactDrawerMode)
-        {
-            TMP_Text tasksTitle = CreateText("TasksTitle", tasksPanel.transform, "Tasks", 34, FontStyles.Bold, TextAlignmentOptions.Center);
-            tasksTitle.color = new Color(0.08f, 0.18f, 0.22f);
-
-            TMP_Text tasksSubtitle = CreateText("TasksSubtitle", tasksPanel.transform, "Complete care actions, then claim coins here.", 24, FontStyles.Normal, TextAlignmentOptions.Center);
-            tasksSubtitle.color = new Color(0.16f, 0.28f, 0.32f);
-        }
 
         CreateTaskCard(tasksPanel.transform, FeedTaskId, "Feed your panda", "Feed your panda from the PocketPal screen.", 10, 14, SaveManager.Data.snacksFed > 0);
         CreateTaskCard(tasksPanel.transform, CheckInTaskId, "Check in today", "Open the game and visit your sanctuary.", 5, 10, true);
@@ -1684,17 +1743,6 @@ public class CustomizationSceneManager : MonoBehaviour
         GameObject rewardsPanel = CreatePanel("RewardsPanel", mainContent, new Color(0.83f, 0.93f, 0.78f, 0.88f), rewardsPanelHeight);
         ConfigurePanelLayout(rewardsPanel, 28, 28, 30, 30, compactDrawerMode ? 22f : 18f);
 
-        if (!compactDrawerMode)
-        {
-            TMP_Text rewardsTitle = CreateText("RewardsTitle", rewardsPanel.transform, "Rewards", 34, FontStyles.Bold, TextAlignmentOptions.Center);
-            rewardsTitle.color = new Color(0.08f, 0.18f, 0.22f);
-        }
-
-        string rewardsProgressText = compactDrawerMode ? "Progress: " + SaveManager.Data.rewardProgress + " / 100" : "Reward progress: " + SaveManager.Data.rewardProgress + " / 100\nRedeem unlocked milestones for bonus coins.";
-        TMP_Text rewardsBody = CreateText("RewardsBody", rewardsPanel.transform, rewardsProgressText, 24, FontStyles.Normal, TextAlignmentOptions.Left);
-        rewardsBody.color = new Color(0.12f, 0.24f, 0.28f);
-        CreateProgressBar("RewardProgressBar", rewardsPanel.transform, SaveManager.Data.rewardProgress / 100f, new Color(0.76f, 0.64f, 1f, 1f));
-
         CreateRewardCard(rewardsPanel.transform, StarterRewardId, "Starter coin grant", "A small boost for opening your sanctuary.", 0, 50);
         CreateRewardCard(rewardsPanel.transform, CareRewardId, "Care progress bonus", "A bonus for completing care tasks.", 25, 100);
         CreateRewardCard(rewardsPanel.transform, PettingRewardId, "Petting progress bonus", "A larger bonus for caring for your pal.", 50, 250);
@@ -1702,26 +1750,6 @@ public class CustomizationSceneManager : MonoBehaviour
         float levelPanelHeight = compactDrawerMode ? 980f : 620f;
         GameObject levelPanel = CreatePanel("LevelRewardsPanel", mainContent, new Color(0.9f, 0.86f, 1f, 0.88f), levelPanelHeight);
         ConfigurePanelLayout(levelPanel, 28, 28, 30, 30, compactDrawerMode ? 22f : 18f);
-
-        if (!compactDrawerMode)
-        {
-            TMP_Text levelTitle = CreateText("LevelRewardsTitle", levelPanel.transform, "Level Rewards", 34, FontStyles.Bold, TextAlignmentOptions.Center);
-            levelTitle.color = new Color(0.08f, 0.18f, 0.22f);
-        }
-
-        string levelProgressText = compactDrawerMode ? CreateCompactLevelProgressText() : CreateLevelProgressText();
-        TMP_Text levelBody = CreateText("LevelRewardsBody", levelPanel.transform, levelProgressText, 24, FontStyles.Normal, TextAlignmentOptions.Left);
-        if (compactDrawerMode)
-        {
-            levelBody.fontSize = 20f;
-            levelBody.overflowMode = TextOverflowModes.Ellipsis;
-            levelBody.lineSpacing = 4f;
-        }
-        levelBody.color = new Color(0.12f, 0.24f, 0.28f);
-        int selectedPalLevel = SaveManager.GetSelectedPocketPalLevel();
-        int selectedPalXp = SaveManager.GetSelectedPocketPalXp();
-        float palProgress = selectedPalLevel >= LevelingSystem.MaxLevel ? 1f : selectedPalXp / (float)LevelingSystem.GetXpForNextLevel(selectedPalLevel);
-        CreateProgressBar("PocketPalLevelProgressBar", levelPanel.transform, palProgress, new Color(0.52f, 0.8f, 1f, 1f));
 
         CreateLevelRewardCard(levelPanel.transform, "pal_level_2_treat", "PocketPal Treat Bundle", "Reach PocketPal level 2 to earn bonus coins.", 2, 1, 75, "", "");
         CreateLevelRewardCard(levelPanel.transform, "pal_level_3_hat", "Level 3 Hat Reward", "Reach PocketPal level 3 to unlock the red cap.", 3, 1, 0, "", HeadwearRedCapAccessoryId);
@@ -1766,6 +1794,12 @@ public class CustomizationSceneManager : MonoBehaviour
             }
         }
         label.color = new Color(0.08f, 0.18f, 0.22f);
+
+        string taskNotificationKey = GetTaskReadyNotificationKey(taskId, isReady, isComplete);
+        if (!string.IsNullOrEmpty(taskNotificationKey) && !SaveManager.IsTaskReadyNotificationSeen(taskNotificationKey))
+        {
+            CreateNotificationDot(card.transform, taskId + "TaskNotificationDot", new Vector2(-14f, -12f), 18f);
+        }
     }
 
     private string GetTaskStatusText(bool isComplete, bool isReady, int coinReward, int accountXpReward)
@@ -1842,6 +1876,117 @@ public class CustomizationSceneManager : MonoBehaviour
         }
 
         return SaveManager.IsDailyTaskClaimed(taskId);
+    }
+
+    public static bool HasAnyUnseenReadyTaskNotifications()
+    {
+        SaveManager.EnsureLoaded();
+        SaveManager.EnsureDailyTaskClaimsForToday();
+
+        List<string> notificationKeys = GetCurrentReadyTaskNotificationKeys();
+        for (int index = 0; index < notificationKeys.Count; index++)
+        {
+            if (!SaveManager.IsTaskReadyNotificationSeen(notificationKeys[index]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool MarkAllCurrentReadyTaskNotificationsSeen()
+    {
+        SaveManager.EnsureLoaded();
+        SaveManager.EnsureDailyTaskClaimsForToday();
+
+        List<string> notificationKeys = GetCurrentReadyTaskNotificationKeys();
+        bool didChange = false;
+        for (int index = 0; index < notificationKeys.Count; index++)
+        {
+            if (SaveManager.MarkTaskReadyNotificationSeen(notificationKeys[index]))
+            {
+                didChange = true;
+            }
+        }
+
+        return didChange;
+    }
+
+    private static List<string> GetCurrentReadyTaskNotificationKeys()
+    {
+        List<string> keys = new List<string>();
+        AppendReadyTaskNotification(keys, FeedTaskId, SaveManager.Data != null && SaveManager.Data.snacksFed > 0);
+        AppendReadyTaskNotification(keys, CheckInTaskId, true);
+        AppendReadyTaskNotification(
+            keys,
+            AccessorizeTaskId,
+            SaveManager.Data != null &&
+            SaveManager.Data.equippedAccessoryIds != null &&
+            SaveManager.Data.equippedAccessoryIds.Count > 0);
+        AppendReadyTaskNotification(keys, PetPalTaskId, SaveManager.GetSelectedPocketPalPetCount() >= PetPalTaskTargetCount);
+        AppendReadyTaskNotification(keys, SleepTaskId, SaveManager.GetSelectedPocketPalCompletedSleepSessions() > 0);
+        int habitatCleanCount = SaveManager.GetHabitatCleanCount();
+        AppendReadyTaskNotification(keys, CleanHabitatTask7Id, habitatCleanCount >= CleanHabitatTask7TargetCount);
+        AppendReadyTaskNotification(keys, CleanHabitatTask15Id, habitatCleanCount >= CleanHabitatTask15TargetCount);
+        AppendReadyTaskNotification(keys, UnlockWhiteTigerTaskId, IsPocketPalOwnedForTaskState("white_tiger"));
+        AppendReadyTaskNotification(keys, UnlockOtterTaskId, IsPocketPalOwnedForTaskState("otter"));
+        return keys;
+    }
+
+    private static void AppendReadyTaskNotification(List<string> keys, string taskId, bool isReady)
+    {
+        if (!isReady || IsTaskCompleteForNotification(taskId))
+        {
+            return;
+        }
+
+        string key = GetTaskReadyNotificationKey(taskId, true, false);
+        if (!string.IsNullOrEmpty(key) && !keys.Contains(key))
+        {
+            keys.Add(key);
+        }
+    }
+
+    private static bool IsTaskCompleteForNotification(string taskId)
+    {
+        if (IsOneTimeTask(taskId))
+        {
+            return SaveManager.Data != null &&
+                   SaveManager.Data.completedTaskIds != null &&
+                   SaveManager.Data.completedTaskIds.Contains(taskId);
+        }
+
+        return SaveManager.IsDailyTaskClaimed(taskId);
+    }
+
+    private static bool IsPocketPalOwnedForTaskState(string pocketPalId)
+    {
+        return SaveManager.Data != null &&
+               SaveManager.Data.ownedPocketPalIds != null &&
+               SaveManager.Data.ownedPocketPalIds.Contains(pocketPalId);
+    }
+
+    private static string GetTaskReadyNotificationKey(string taskId, bool isReady, bool isComplete)
+    {
+        if (string.IsNullOrEmpty(taskId) || !isReady || isComplete)
+        {
+            return string.Empty;
+        }
+
+        if (IsOneTimeTask(taskId))
+        {
+            return TaskReadyNotificationOncePrefix + taskId;
+        }
+
+        string dayKey = SaveManager.Data != null ? SaveManager.Data.dailyTaskClaimDateKey : string.Empty;
+        if (string.IsNullOrEmpty(dayKey))
+        {
+            SaveManager.EnsureDailyTaskClaimsForToday();
+            dayKey = SaveManager.Data != null ? SaveManager.Data.dailyTaskClaimDateKey : string.Empty;
+        }
+
+        return TaskReadyNotificationDailyPrefix + dayKey + ":" + taskId;
     }
 
     private void CreateRewardCard(Transform parent, string rewardId, string title, string description, int requiredProgress, int coinReward)
@@ -2723,7 +2868,7 @@ public class CustomizationSceneManager : MonoBehaviour
         TMP_Text palName = CreateText("PocketPalName", stage.transform, palNameText, 52, FontStyles.Bold, TextAlignmentOptions.Center);
         palName.color = new Color(0.08f, 0.18f, 0.22f);
 
-        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
+        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCountInCurrentCycle();
         pocketPalBodyText = CreateText("PocketPalBody", stage.transform, CreatePocketPalStatusText(), 32, FontStyles.Normal, TextAlignmentOptions.Center);
         pocketPalBodyText.color = new Color(0.12f, 0.24f, 0.28f);
 
@@ -2769,28 +2914,6 @@ public class CustomizationSceneManager : MonoBehaviour
             feedLabel.textWrappingMode = TextWrappingModes.NoWrap;
             feedLabel.overflowMode = TextOverflowModes.Overflow;
         }
-    }
-
-    private string CreateLevelProgressText()
-    {
-        int selectedPalLevel = SaveManager.GetSelectedPocketPalLevel();
-        int selectedPalXp = SaveManager.GetSelectedPocketPalXp();
-        int palNextXp = LevelingSystem.GetXpForNextLevel(selectedPalLevel);
-        int habitatNextXp = LevelingSystem.GetXpForNextLevel(SaveManager.Data.habitatLevel);
-        string palProgress = selectedPalLevel >= LevelingSystem.MaxLevel ? "Max level" : selectedPalXp + " / " + palNextXp + " XP";
-        string habitatProgress = SaveManager.Data.habitatLevel >= LevelingSystem.MaxLevel ? "Max level" : SaveManager.Data.habitatXp + " / " + habitatNextXp + " XP";
-        return "PocketPal level " + selectedPalLevel + ": " + palProgress + "\nHabitat level " + SaveManager.Data.habitatLevel + ": " + habitatProgress + "\nTasks, feeding, shopping, and reward claims add XP.";
-    }
-
-    private string CreateCompactLevelProgressText()
-    {
-        int selectedPalLevel = SaveManager.GetSelectedPocketPalLevel();
-        int selectedPalXp = SaveManager.GetSelectedPocketPalXp();
-        int palNextXp = LevelingSystem.GetXpForNextLevel(selectedPalLevel);
-        int habitatNextXp = LevelingSystem.GetXpForNextLevel(SaveManager.Data.habitatLevel);
-        string palProgress = selectedPalLevel >= LevelingSystem.MaxLevel ? "Max" : selectedPalXp + " / " + palNextXp + " XP";
-        string habitatProgress = SaveManager.Data.habitatLevel >= LevelingSystem.MaxLevel ? "Max" : SaveManager.Data.habitatXp + " / " + habitatNextXp + " XP";
-        return "PocketPal Lv " + selectedPalLevel + ": " + palProgress + "\nHabitat Lv " + SaveManager.Data.habitatLevel + ": " + habitatProgress;
     }
 
     private string GetSelectedPocketPalDisplayName()
@@ -2872,34 +2995,6 @@ public class CustomizationSceneManager : MonoBehaviour
             }
         }
         label.color = new Color(0.08f, 0.18f, 0.22f);
-    }
-
-    private void CreateProgressBar(string objectName, Transform parent, float progress, Color fillColor)
-    {
-        GameObject bar = new GameObject(objectName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(LayoutElement));
-        bar.transform.SetParent(parent, false);
-
-        Image track = bar.GetComponent<Image>();
-        track.color = new Color(1f, 1f, 1f, 0.74f);
-        track.raycastTarget = false;
-
-        LayoutElement layoutElement = bar.GetComponent<LayoutElement>();
-        layoutElement.preferredHeight = compactDrawerMode ? 28f : 34f;
-        layoutElement.minHeight = layoutElement.preferredHeight;
-        layoutElement.flexibleWidth = 1f;
-
-        GameObject fill = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        fill.transform.SetParent(bar.transform, false);
-
-        RectTransform fillTransform = fill.GetComponent<RectTransform>();
-        fillTransform.anchorMin = new Vector2(0f, 0f);
-        fillTransform.anchorMax = new Vector2(Mathf.Clamp01(progress), 1f);
-        fillTransform.offsetMin = new Vector2(5f, 5f);
-        fillTransform.offsetMax = new Vector2(-5f, -5f);
-
-        Image fillImage = fill.GetComponent<Image>();
-        fillImage.color = fillColor;
-        fillImage.raycastTarget = false;
     }
 
     private static Texture2D CreateTransparentTexture(int width, int height)
@@ -2989,8 +3084,8 @@ public class CustomizationSceneManager : MonoBehaviour
     {
         int moodValue = SaveManager.GetSelectedPocketPalMood();
         int hungerValue = SaveManager.GetSelectedPocketPalHunger();
-        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
-        return "Mood: " + GetMoodLabel(moodValue) + " (" + moodValue + "/100)\nHunger: " + GetHungerLabel(hungerValue) + " (" + hungerValue + "/100)\nSleep: " + CreateSleepMeterText() + "\nTimes fed: " + pocketPalFeedCount;
+        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCountInCurrentCycle();
+        return "Mood: " + GetMoodLabel(moodValue) + " (" + moodValue + "/100)\nHunger: " + GetHungerLabel(hungerValue) + " (" + hungerValue + "/100)\nSleep: " + CreateSleepMeterText() + "\nFed this cycle: " + pocketPalFeedCount + " / 3";
     }
 
     private string CreatePocketPalStatsSummary()
@@ -3353,7 +3448,7 @@ public class CustomizationSceneManager : MonoBehaviour
         SaveManager.EnsureLoaded();
 
         SaveManager.FeedSelectedPocketPal();
-        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCount();
+        pocketPalFeedCount = SaveManager.GetSelectedPocketPalFeedCountInCurrentCycle();
         LevelingSystem.GrantPocketPalXp(12);
         LevelingSystem.GrantHabitatXp(4);
         SaveManager.Save();

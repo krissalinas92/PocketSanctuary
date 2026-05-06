@@ -39,6 +39,8 @@ public class GameSaveData
     public List<string> claimedDailyTaskIds = new List<string>();
     public List<string> redeemedRewardIds = new List<string>();
     public List<string> claimedLevelRewardIds = new List<string>();
+    public List<string> seenUnlockedPocketPalIds = new List<string> { "panda" };
+    public List<string> seenReadyTaskNotificationKeys = new List<string>();
 }
 
 [Serializable]
@@ -50,6 +52,8 @@ public class PocketPalProgressData
     public int hunger = 55;
     public int mood = 65;
     public int feedCount = 0;
+    public int feedCountInCycle = 0;
+    public string feedCycleDateKey = "";
     public int petCount = 0;
     public float sleepSeconds = 480f;
     public int completedSleepSessions = 0;
